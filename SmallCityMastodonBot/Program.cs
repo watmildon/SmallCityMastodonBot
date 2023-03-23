@@ -11,8 +11,23 @@ namespace SmallCityMastodonBot
         public static readonly int BUILDING_COUNT_MAXIMUM = 10;
         static void Main(string[] args)
         {
+            using (StreamWriter sw = new StreamWriter("smallbot.log"))
+            {
+                try
+                {
+                    GeneratePost(args, sw);
+                }
+                catch (Exception ex)
+                {
+                    sw.WriteLine(ex.ToString());
+                }
+            }
+        }
+
+        private static void GeneratePost(string[] args, StreamWriter sw)
+        {
             string apiToken = args[0];
-            
+
             string allText = System.IO.File.ReadAllText("townsList.json");
 
             HttpClient httpClient = new();
@@ -21,9 +36,10 @@ namespace SmallCityMastodonBot
             OverpassQueryBuilder queryBuilder = new OverpassQueryBuilder(httpClient);
 
             bool posted = false;
-
+            int townsSearched = 0;
             while (!posted)
             {
+                townsSearched++;
                 var pickedTown = data.elements[rnd.Next(data.elements.Length)];
                 if (pickedTown.tags.population == "0") // skip ghost towns for now, too many old rail stops as place=locality
                     continue;
@@ -35,12 +51,16 @@ namespace SmallCityMastodonBot
 
                 string osmLink = $"https://www.openstreetmap.org/#map=16/{pickedTown.lat}/{pickedTown.lon}";
                 string state = GetState(pickedTown.lat, pickedTown.lon, httpClient).Result;
-                var postContent = $"{pickedTown.tags.name}, {state} seems like it could use some mapping!\r\n\r\nPopulation: {pickedTown.tags.population}\r\nBuilding count: {buildingCount}\r\nRoads to review: {tigerRoadwaysData}\r\n\r\nMap link: {osmLink}";
+                var postContent = $"{pickedTown.tags.name}, {state} seems like it could use some mapping!\r\n\r\nPopulation: {pickedTown.tags.population}\r\nBuilding count: {buildingCount}\r\nRoads to review: {tigerRoadwaysData}\r\n\r\nMap link: {osmLink}\r\n#OpenStreetMap";
                 Console.WriteLine(postContent);
+
+                sw.WriteLine("POST TEXT GENERATED:");
+                sw.WriteLine(postContent);
 
                 var tasks = PostTown(postContent, apiToken);
                 tasks.Wait();
                 posted = true;
+                sw.WriteLine($"INFO - TOWNS SEARCHED: {townsSearched}");
             }
         }
 
