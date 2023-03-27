@@ -15,13 +15,9 @@ namespace overpass_parser
             this.httpClient = httpClient;
         }
 
-        public string CreateQuery(double latitude, double longitude, string tagKey)
+        public string CreateCountQuery(double latitude, double longitude, string tagKey, string radiusInMeters)
         {
-            return $"[out:json][timeout:25];(nwr(around:800.00,{latitude},{longitude})[\"{tagKey}\"];);out body;>;out skel qt;";
-        }
-        public string CreateCountQuery(double latitude, double longitude, string tagKey)
-        {
-            return $"[out:json][timeout:25];(nwr(around:800.00,{latitude},{longitude})[\"{tagKey}\"];);out count;";
+            return $"[out:json][timeout:25];(nwr(around:{radiusInMeters}.00,{latitude},{longitude})[\"{tagKey}\"];);out count;";
         }
 
         private static long lastQueryTime = DateTime.MinValue.Ticks / TimeSpan.TicksPerMillisecond;
@@ -38,10 +34,7 @@ namespace overpass_parser
             }
 
             // URL for the Overpass API endpoint
-            //string overpassUrl = "https://overpass.kumi.systems/api/interpreter";
-            //string overpassUrl = "https://maps.mail.ru/osm/tools/overpass/api/interpreter";
             string overpassUrl = "https://overpass-api.de/api/interpreter";
-            //string overpassUrl = "http://192.168.1.43/api/interpreter";
 
             // set up the request
             HttpRequestMessage request = new(HttpMethod.Post, overpassUrl);

@@ -1,0 +1,51 @@
+{
+  "botInfo": [
+    {
+      "botUrl": "@SmallTownUSA@en.osm.town",
+      "botDomain": "en.osm.town",
+      "botName": "UnmappedSmallTownUSA",
+      "townFile": "townsList.json",
+      "overpassQuery": [
+        {
+          "featureTag": "building",
+          "queryType": "count",
+          "countMaximum": "10",
+          "radiusInMeters": "800",
+          "message": "Building count"
+        },
+        {
+          "featureTag": "tiger:reviewed",
+          "queryType": "count",
+          "countMaximum": "-1",
+          "radiusInMeters": "800",
+          "message": "Roads to review"
+        }
+      ],
+      "postText": {
+        "greetingText": "seems like it could use some mapping!",
+        "populationText": "Population",
+        "mapLinkText": "Map link"
+      }
+    },
+    /*{
+      "botUrl": "@PetiteVilleFrance@en.osm.town",
+      "botDomain": "en.osm.town",
+      "botName": "UnmappedSmallTownUSA",
+      "townFile": "townsList_France.json",
+      "overpassQuery": [
+        {
+          "featureTag": "building",
+          "queryType": "count",
+          "countMaximum": "10",
+          "radiusInMeters": "800",
+          "message": "Nombre de bâtiments"
+        },
+      ],
+      "postText": {
+        "greetingText": "semble qu'il pourrait utiliser une cartographie!",
+        "populationText": "Population",
+        "mapLinkText": "Lien carte"
+      }
+    }*/
+  ]
+}
