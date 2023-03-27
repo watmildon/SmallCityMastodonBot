@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SmallCityMastodonBot": {
+      "commandName": "Project",
+      "commandLineArgs": "12345"
+    }
+  }
+}
