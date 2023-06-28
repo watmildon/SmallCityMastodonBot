@@ -11,77 +11,65 @@ namespace SmallCityMastodonBot
         public static readonly int BUILDING_COUNT_MAXIMUM = 10;
         static void Main(string[] args)
         {
-            using (StreamWriter sw = new StreamWriter("smallbot.log"))
+            try
             {
-                try
+                List<TownInfo> townData = new List<TownInfo>();
+
+                string allText = System.IO.File.ReadAllText("townsList.json");
+
+                HttpClient httpClient = new();
+                TownsData2 data = JsonConvert.DeserializeObject<TownsData2>(allText);
+
+                Console.WriteLine($"Total towns to scan {data.elements.Length}");
+
+                OverpassQueryBuilder queryBuilder = new OverpassQueryBuilder(httpClient);
+
+                int townsSearched = 0;
+                foreach (var pickedTown in data.elements)
                 {
-                    GeneratePost(args, sw);
+                    if (pickedTown.tags.population == "0") // skip ghost towns for now, too many old rail stops as place=locality
+                        continue;
+
+                    try
+                    {
+                        int buildingCount = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(pickedTown.lat, pickedTown.lon, "building"));
+                        int tigerRoadwaysData = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(pickedTown.lat, pickedTown.lon, "tiger:reviewed"));
+
+                        var town = new TownInfo();
+                        town.Name = pickedTown.tags.name;
+                        town.Population = pickedTown.tags.population;
+                        town.NumBuilding = buildingCount;
+                        town.NumReviewableRoads = tigerRoadwaysData;
+
+                        townData.Add(town);
+
+                        //townsSearched++;
+                        //if (townsSearched > 1000)
+                        //{
+                        //    break;
+                        //}
+                    }
+                    catch (Exception e) {  Console.WriteLine(e); Thread.Sleep(1000); };
                 }
-                catch (Exception ex)
-                {
-                    sw.WriteLine(ex.ToString());
-                }
+
+                File.WriteAllText(@"C:\OSM\SmallTownScanDataAll.json", JsonConvert.SerializeObject(townData));
             }
-        }
-
-        private static void GeneratePost(string[] args, StreamWriter sw)
-        {
-            string apiToken = args[0];
-
-            string allText = System.IO.File.ReadAllText("townsList.json");
-
-            HttpClient httpClient = new();
-            TownsData2 data = JsonConvert.DeserializeObject<TownsData2>(allText);
-            Random rnd = new Random(Guid.NewGuid().GetHashCode());
-            OverpassQueryBuilder queryBuilder = new OverpassQueryBuilder(httpClient);
-
-            bool posted = false;
-            int townsSearched = 0;
-            while (!posted)
+            catch (Exception ex)
             {
-                townsSearched++;
-                var pickedTown = data.elements[rnd.Next(data.elements.Length)];
-                if (pickedTown.tags.population == "0") // skip ghost towns for now, too many old rail stops as place=locality
-                    continue;
-
-                int buildingCount = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(pickedTown.lat, pickedTown.lon, "building"));
-                if (buildingCount > BUILDING_COUNT_MAXIMUM)
-                    continue;
-                int tigerRoadwaysData = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(pickedTown.lat, pickedTown.lon, "tiger:reviewed"));
-
-                string osmLink = $"https://www.openstreetmap.org/#map=16/{pickedTown.lat}/{pickedTown.lon}";
-                string state = GetState(pickedTown.lat, pickedTown.lon, httpClient).Result;
-                var postContent = $"{pickedTown.tags.name}, {state} seems like it could use some mapping!\r\n\r\nPopulation: {pickedTown.tags.population}\r\nBuilding count: {buildingCount}\r\nRoads to review: {tigerRoadwaysData}\r\n\r\nMap link: {osmLink}\r\n#OpenStreetMap";
-                Console.WriteLine(postContent);
-
-                sw.WriteLine("POST TEXT GENERATED:");
-                sw.WriteLine(postContent);
-
-                var tasks = PostTown(postContent, apiToken);
-                tasks.Wait();
-                posted = true;
-                sw.WriteLine($"INFO - TOWNS SEARCHED: {townsSearched}");
+                Console.WriteLine(ex.ToString());
             }
+            
         }
 
-        private static async Task PostTown(string postContent, string token)
+
+        public struct TownInfo
         {
-            var domain = "en.osm.town";
-            var toot = await Statuses.Posting(domain, token, postContent);
+            public string Name;
+            public string Population;
+            public int NumBuilding;
+            public int NumReviewableRoads;
         }
 
-        private async static Task<string> GetState(double lat, double lon, HttpClient client)
-        {
-            var url = $"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=5";
-            var msg = new HttpRequestMessage(HttpMethod.Get, url);
-            msg.Headers.Add("User-Agent", userAgent);
-            var res = await client.SendAsync(msg);
-            var content = await res.Content.ReadAsStringAsync();
-
-            var geoCodeResult = JsonConvert.DeserializeObject<ReverseGeocodeResult>(content);
-
-            return geoCodeResult.address.state;
-        }
 
 
     }
