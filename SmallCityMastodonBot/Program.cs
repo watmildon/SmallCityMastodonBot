@@ -1,8 +1,10 @@
-﻿
-using Mastodon.Api;
-using Mastonet;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using overpass_parser;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Net.Http.Headers;
+using Mastonet;
 using System.Text;
 
 namespace SmallCityMastodonBot
@@ -90,9 +92,14 @@ namespace SmallCityMastodonBot
                 logger.WriteLine("POST TEXT GENERATED:");
                 logger.WriteLine(postContent.ToString());
 
+                // generate image from tiles
+                string imagePath = $"{pickedTown.tags.name}_TownImage.png";
+                GenerateImageFromOSMTiles(httpClient, 16, pickedTown.lat, pickedTown.lon, imagePath);
+                var imageBytes = File.ReadAllBytes(imagePath); //todo, get this from a memory stream from the call above
+
                 if (apiToken != "12345") // skip posting if we are running local
                 {
-                    var tasks = PostTown(httpClient, postContent.ToString(), apiToken);
+                    var tasks = PostTown(httpClient, postContent.ToString(), apiToken, imageBytes, imagePath, "Map image of the town showing the status as of the time of this posting");
                     tasks.Wait();
                 }
                 posted = true;
@@ -100,11 +107,13 @@ namespace SmallCityMastodonBot
             }
         }
 
-        private static async Task PostTown(HttpClient client, string postContent, string token)
+        private static async Task PostTown(HttpClient client, string postContent, string token, byte[] image, string fileName, string altText)
         {
             var domain = "en.osm.town";
             var mastodonClient = new MastodonClient(domain, token, client);
-            var result = await mastodonClient.PublishStatus(postContent, language: "en");
+            var attachment = await mastodonClient.UploadMedia(new MemoryStream(image), fileName, altText);
+            var mediaIds = new List<string>() { attachment.Id };
+            var result = await mastodonClient.PublishStatus(postContent, mediaIds: mediaIds, language: "en");
         }
 
         private async static Task<string> GetState(double lat, double lon, HttpClient client)
@@ -120,6 +129,54 @@ namespace SmallCityMastodonBot
             return geoCodeResult.address.state;
         }
 
+        static readonly int NUM_TILES_WIDE = 7;
+        static readonly int TILE_COUNT_OFFSET = 3; //used to center the town in the downloaded area
+        private static void GenerateImageFromOSMTiles(HttpClient httpClient, int zoom, double lat, double lon, string outputFilePath)
+        {
+            var p = new PointF();
 
+            p.X = (float)((lon + 180.0) / 360.0 * (1 << zoom));
+            p.Y = (float)((1.0 - Math.Log(Math.Tan(lat * Math.PI / 180.0) +
+                1.0 / Math.Cos(lat * Math.PI / 180.0)) / Math.PI) / 2.0 * (1 << zoom));
+
+            System.Drawing.Image[,] images = new System.Drawing.Image[NUM_TILES_WIDE, NUM_TILES_WIDE];
+
+            for (int i = 0; i < NUM_TILES_WIDE; i++)
+            {
+                for (int j = 0; j < NUM_TILES_WIDE; j++)
+                {
+                    var productValue = new ProductInfoHeaderValue("SmallTownUSABot", "0.1");
+                    var commentValue = new ProductInfoHeaderValue("(https://en.osm.town/@SmallTownUSA)");
+
+                    httpClient.DefaultRequestHeaders.UserAgent.Add(productValue);
+                    httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
+                    string url = $"https://tile.openstreetmap.org/{zoom}/{Math.Floor(p.X+i-TILE_COUNT_OFFSET)}/{Math.Floor(p.Y+j-TILE_COUNT_OFFSET)}.png";
+                    Debug.WriteLine(url);
+                    var imageTask = httpClient.GetByteArrayAsync(url);
+                    Task.WaitAll(imageTask);
+                    var imageContent = imageTask.Result;
+
+                    using (MemoryStream mem = new MemoryStream(imageContent))
+                    {
+                        var yourImage = System.Drawing.Image.FromStream(mem);
+                        {
+                            images[i, j] = yourImage;
+                        }
+                    }
+                }
+            }
+
+            using (Bitmap result = new Bitmap(NUM_TILES_WIDE * 256, NUM_TILES_WIDE * 256))
+            {
+                for (int x = 0; x < NUM_TILES_WIDE; x++)
+                    for (int y = 0; y < NUM_TILES_WIDE; y++)
+                        using (Graphics g = Graphics.FromImage(result))
+                        {
+                            var img = images[x, y];
+                            g.DrawImage(img, x * 256, y * 256, 256, 256);
+                        }
+                result.Save(outputFilePath, ImageFormat.Png);
+            }
+        }
     }
 }
