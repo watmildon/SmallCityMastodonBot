@@ -1,5 +1,6 @@
 ﻿
 using Mastodon.Api;
+using Mastonet;
 using Newtonsoft.Json;
 using overpass_parser;
 using System.Text;
@@ -91,7 +92,7 @@ namespace SmallCityMastodonBot
 
                 if (apiToken != "12345") // skip posting if we are running local
                 {
-                    var tasks = PostTown(postContent.ToString(), apiToken);
+                    var tasks = PostTown(httpClient, postContent.ToString(), apiToken);
                     tasks.Wait();
                 }
                 posted = true;
@@ -99,10 +100,11 @@ namespace SmallCityMastodonBot
             }
         }
 
-        private static async Task PostTown(string postContent, string token)
+        private static async Task PostTown(HttpClient client, string postContent, string token)
         {
             var domain = "en.osm.town";
-            var toot = await Statuses.Posting(domain, token, postContent);
+            var mastodonClient = new MastodonClient(domain, token, client);
+            var result = await mastodonClient.PublishStatus(postContent, language: "en");
         }
 
         private async static Task<string> GetState(double lat, double lon, HttpClient client)
