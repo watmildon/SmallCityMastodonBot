@@ -17,7 +17,7 @@ namespace SmallCityMastodonBot
         static void Main(string[] args)
         {
             var botConfigInfo = JsonConvert.DeserializeObject<BotConfigFile>(File.ReadAllText("SmallCityBotConfig.json"));
-            HttpClient httpClient = new();
+            HttpClient httpClient = new HttpClient();
 
             using (StreamWriter logger = new StreamWriter("smallbot.log"))
             {
@@ -181,6 +181,7 @@ namespace SmallCityMastodonBot
 
                     httpClient.DefaultRequestHeaders.UserAgent.Add(productValue);
                     httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
+
                     string url = $"https://tile.openstreetmap.org/{zoom}/{Math.Floor(p.X+i-TILE_COUNT_OFFSET)}/{Math.Floor(p.Y+j-TILE_COUNT_OFFSET)}.png";
                     Debug.WriteLine(url);
                     var imageTask = httpClient.GetByteArrayAsync(url);
@@ -199,13 +200,24 @@ namespace SmallCityMastodonBot
 
             using (Bitmap result = new Bitmap(NUM_TILES_WIDE * 256, NUM_TILES_WIDE * 256))
             {
+                //build image
                 for (int x = 0; x < NUM_TILES_WIDE; x++)
+                {
                     for (int y = 0; y < NUM_TILES_WIDE; y++)
                         using (Graphics g = Graphics.FromImage(result))
                         {
                             var img = images[x, y];
                             g.DrawImage(img, x * 256, y * 256, 256, 256);
                         }
+                }
+
+                //burn in copyright
+                using (Graphics g = Graphics.FromImage(result))
+                {
+                    Image img = Image.FromStream(new MemoryStream(File.ReadAllBytes("OSM_copyright.png")));
+                    g.DrawImage(img, (NUM_TILES_WIDE * 256) - 249, (NUM_TILES_WIDE * 256) - 21, 249, 21);
+                }
+
                 result.Save(outputFilePath, ImageFormat.Png);
             }
         }
