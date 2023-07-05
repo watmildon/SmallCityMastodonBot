@@ -15,8 +15,9 @@ namespace SmallCityMastodonBot
         public static readonly string userAgent = "smalltownsusa/0.1";
         public static readonly int BUILDING_COUNT_MAXIMUM = 10;
         static void Main(string[] args)
-        {            
+        {
             var botConfigInfo = JsonConvert.DeserializeObject<BotConfigFile>(File.ReadAllText("SmallCityBotConfig.json"));
+            HttpClient httpClient = new();
 
             using (StreamWriter logger = new StreamWriter("smallbot.log"))
             {
@@ -24,7 +25,9 @@ namespace SmallCityMastodonBot
                 {
                     try
                     {
-                        GeneratePost(args, logger, bot);
+                        //GeneratePost(args[0], logger, bot, httpClient);
+                        var task = ReplyToMappedItPosts(httpClient, args[0]);
+                        task.Wait();
                     }
                     catch (Exception ex)
                     {
@@ -34,13 +37,11 @@ namespace SmallCityMastodonBot
             }
         }
 
-        private static void GeneratePost(string[] args, StreamWriter logger, Botinfo bot)
+        private static void GeneratePost(string apiToken, StreamWriter logger, Botinfo bot, HttpClient httpClient)
         {
-            string apiToken = args[0];
-
             string allText = System.IO.File.ReadAllText(bot.townFile);
 
-            HttpClient httpClient = new();
+
             TownsData2 data = JsonConvert.DeserializeObject<TownsData2>(allText);
             Random rnd = new Random(Guid.NewGuid().GetHashCode());
             OverpassQueryBuilder queryBuilder = new OverpassQueryBuilder(httpClient);
@@ -59,7 +60,7 @@ namespace SmallCityMastodonBot
                 bool skipTown = false;
                 foreach (var query in bot.overpassQuery)
                 {
-                    int count = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(pickedTown.lat, pickedTown.lon, query.featureTag,query.radiusInMeters));
+                    int count = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(pickedTown.lat, pickedTown.lon, query.featureTag, query.radiusInMeters));
 
                     if (query.countMaximum != -1)
                     {
@@ -78,7 +79,7 @@ namespace SmallCityMastodonBot
 
                 string osmLink = $"https://www.openstreetmap.org/#map=16/{pickedTown.lat}/{pickedTown.lon}";
                 string state = "";
-                
+
                 try
                 {
                     logger.WriteLine($"Nominatim state lookup for: {osmLink}");
@@ -94,12 +95,12 @@ namespace SmallCityMastodonBot
 
                 StringBuilder postContent = new StringBuilder();
                 postContent.Append($"{pickedTown.tags.name}, {state} {bot.postText.greetingText}\r\n\r\n{bot.postText.populationText}: {pickedTown.tags.population}\r\n");
-                
-                foreach(var postText in queryResultPostText) 
+
+                foreach (var postText in queryResultPostText)
                 {
                     postContent.AppendLine(postText);
                 }
-                
+
                 postContent.Append($"\r\n{bot.postText.mapLinkText}: {osmLink}\r\n#OpenStreetMap");
                 Console.WriteLine(postContent.ToString());
 
@@ -208,6 +209,95 @@ namespace SmallCityMastodonBot
                 result.Save(outputFilePath, ImageFormat.Png);
             }
         }
+
+        private static async Task ReplyToMappedItPosts(HttpClient client, string token)
+        {
+            var domain = "en.osm.town";
+            var mastodonClient = new MastodonClient(domain, token, client);
+            var botAccount = await mastodonClient.GetCurrentUser();
+            var options = new ArrayOptions();
+
+            var posts = await mastodonClient.GetHomeTimeline(options);
+            while (posts.Count > 0)
+            {
+                foreach (var post in posts)
+                {
+                    Console.WriteLine(post.Url);
+
+                    if (post.Account.Id == botAccount.Id)
+                    {
+                        if (post.RepliesCount == 0)
+                            continue;
+
+                        var context = await mastodonClient.GetStatusContext(post.Id);
+
+                        // are there any replies?
+                        if (context.Descendants.Count() > 0)
+                        {
+                            foreach (var reply in context.Descendants)
+                            {
+                                // check all replies for a mapped it post.
+                                if (reply.Content.Contains("I mapped it!"))
+                                {
+                                    Console.WriteLine($"\t{reply.Url}");
+
+                                    bool alreadyReplied = false;
+
+                                    // check to see if the bot has already replied
+                                    if (reply.RepliesCount != 0)
+                                    {
+                                        var replyContext = await mastodonClient.GetStatusContext(reply.Id);
+                                        foreach (var subReply in replyContext.Descendants)
+                                        {
+                                            if (post.Id == subReply.Id) // the first descendant is the original status message, skip
+                                                continue;
+
+                                            Console.WriteLine($"\t\t{subReply.Url}");
+
+                                            if (subReply.Account.Id == botAccount.Id)
+                                                alreadyReplied = true;
+                                        }
+                                    }
+
+                                    if (!alreadyReplied)
+                                    {
+                                        await PostMappingReply(client, token, reply, ParseStatus(post));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                options.MaxId = posts.NextPageMaxId;
+                posts = await mastodonClient.GetHomeTimeline(options);
+            }
+        }
+
+        private static async Task PostMappingReply(HttpClient httpClient, String token, Status mappedItPost, PostContent originalContent)
+        {
+            var domain = "en.osm.town";
+            var mastodonClient = new MastodonClient(domain, token, httpClient);
+
+            // pull new stats to see if work has happened, only respond if it's different
+            OverpassQueryBuilder queryBuilder = new OverpassQueryBuilder(httpClient);
+            int buildingCount = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(originalContent.Lattitude, originalContent.Longitude, "building", "800"));
+            int roadwayCount = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(originalContent.Lattitude, originalContent.Longitude, "tiger:reviewed", "800"));
+            int landuseCout = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(originalContent.Lattitude, originalContent.Longitude, "landuse", "800"));
+            
+            string thankYouText = $"@{mappedItPost.Account.AccountName} thanks for helping out!\r\n\r\n{originalContent.CityName} now has {buildingCount - originalContent.BuildingCount} more buildings and {originalContent.RoadsToReview} roads to review.\r\n\r\n#SmallTownUSAUpdate";
+
+            Console.WriteLine($"POST TEXT: {thankYouText}");
+            string imagePath = $"{originalContent.CityName}_TownImage_reply.png";
+
+            GenerateImageFromOSMTiles(httpClient, 16, originalContent.Lattitude, originalContent.Longitude, imagePath);
+            Console.WriteLine("Generated image");
+
+            var attachment = await mastodonClient.UploadMedia(new MemoryStream(File.ReadAllBytes(imagePath)), imagePath, "Map image of the town showing the status as of the time of this posting.");
+            var mediaIds = new List<string>() { attachment.Id };
+
+            await mastodonClient.PublishStatus(thankYouText, replyStatusId: mappedItPost.Id, mediaIds: mediaIds);
+        }        
     }
     public struct PostContent
     {
