@@ -76,7 +76,20 @@ namespace SmallCityMastodonBot
                 if (skipTown) continue; // town was over one of the maximums
 
                 string osmLink = $"https://www.openstreetmap.org/#map=16/{pickedTown.lat}/{pickedTown.lon}";
-                string state = GetState(pickedTown.lat, pickedTown.lon, httpClient).Result;
+                string state = "";
+                
+                try
+                {
+                    logger.WriteLine($"Nominatim state lookup for: {osmLink}");
+                    state = GetStateNameFromNominatim(pickedTown.lat, pickedTown.lon, httpClient).Result;
+                }
+                catch
+                {
+                    // very occasionally this nominatim lookup fails, we will try again unless we've been looping on it
+                    if (townsSearched >= 100)
+                        break;
+                    continue;
+                }
 
                 StringBuilder postContent = new StringBuilder();
                 postContent.Append($"{pickedTown.tags.name}, {state} {bot.postText.greetingText}\r\n\r\n{bot.postText.populationText}: {pickedTown.tags.population}\r\n");
@@ -116,7 +129,67 @@ namespace SmallCityMastodonBot
             var result = await mastodonClient.PublishStatus(postContent, mediaIds: mediaIds, language: "en");
         }
 
-        private async static Task<string> GetState(double lat, double lon, HttpClient client)
+        private static async Task PostThankYouReplies(HttpClient client, string token)
+        {
+            var domain = "en.osm.town";
+            var mastodonClient = new MastodonClient(domain, token, client);
+            var botAccount = await mastodonClient.GetCurrentUser();
+
+            var options = new ArrayOptions();
+
+            var posts = await mastodonClient.GetHomeTimeline(options);
+            while (posts.Count > 0)
+            {
+                foreach (var post in posts)
+                {
+                    Console.WriteLine(post.Url);
+
+                    if (post.Account.Id == botAccount.Id)
+                    {
+                        if (post.RepliesCount == 0)
+                            continue;
+                        var context = await mastodonClient.GetStatusContext(post.Id);
+
+                        if (context.Descendants.Count() > 0)
+                        {
+                            foreach (var reply in context.Descendants)
+                            {
+                                if (reply.Content.Contains("I mapped it!"))
+                                {
+                                    Console.WriteLine($"\t{reply.Url}");
+
+                                    bool alreadyReplied = false;
+                                    if (reply.RepliesCount != 0)
+                                    {
+                                        var replyContext = await mastodonClient.GetStatusContext(reply.Id);
+                                        foreach (var subReply in replyContext.Descendants)
+                                        {
+                                            if (post.Id == subReply.Id) // the first descendant is the original status message, skip
+                                                continue;
+
+                                            Console.WriteLine($"\t\t{subReply.Url}");
+
+                                            if (subReply.Account.Id == botAccount.Id)
+                                                alreadyReplied = true;
+                                        }
+                                    }
+
+                                    if (!alreadyReplied)
+                                    {
+                                        Console.WriteLine("\tNeeds Reply");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                options.MaxId = posts.NextPageMaxId;
+                posts = await mastodonClient.GetHomeTimeline(options);
+            }
+        }
+
+        private async static Task<string> GetStateNameFromNominatim(double lat, double lon, HttpClient client)
         {
             var url = $"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=5";
             var msg = new HttpRequestMessage(HttpMethod.Get, url);
