@@ -25,7 +25,7 @@ namespace SmallCityMastodonBot
                 {
                     try
                     {
-                        //GeneratePost(args[0], logger, bot, httpClient);
+                        GeneratePost(args[0], logger, bot, httpClient);
                         var task = ReplyToMappedItPosts(httpClient, args[0]);
                         task.Wait();
                     }
@@ -285,7 +285,7 @@ namespace SmallCityMastodonBot
             int roadwayCount = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(originalContent.Lattitude, originalContent.Longitude, "tiger:reviewed", "800"));
             int landuseCout = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(originalContent.Lattitude, originalContent.Longitude, "landuse", "800"));
             
-            string thankYouText = $"@{mappedItPost.Account.AccountName} thanks for helping out!\r\n\r\n{originalContent.CityName} now has {buildingCount - originalContent.BuildingCount} more buildings and {originalContent.RoadsToReview} roads to review.\r\n\r\n#SmallTownUSAUpdate";
+            string thankYouText = $"@{mappedItPost.Account.AccountName} thanks for helping out!\r\n\r\n{originalContent.CityName} now has {buildingCount - originalContent.BuildingCount} more buildings and {roadwayCount} roads to review.\r\n\r\n#SmallTownUSAUpdate";
 
             Console.WriteLine($"POST TEXT: {thankYouText}");
             string imagePath = $"{originalContent.CityName}_TownImage_reply.png";
