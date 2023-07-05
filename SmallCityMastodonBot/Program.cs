@@ -6,6 +6,7 @@ using System.Drawing.Imaging;
 using System.Net.Http.Headers;
 using Mastonet;
 using System.Text;
+using Mastonet.Entities;
 
 namespace SmallCityMastodonBot
 {
@@ -129,66 +130,6 @@ namespace SmallCityMastodonBot
             var result = await mastodonClient.PublishStatus(postContent, mediaIds: mediaIds, language: "en");
         }
 
-        private static async Task PostThankYouReplies(HttpClient client, string token)
-        {
-            var domain = "en.osm.town";
-            var mastodonClient = new MastodonClient(domain, token, client);
-            var botAccount = await mastodonClient.GetCurrentUser();
-
-            var options = new ArrayOptions();
-
-            var posts = await mastodonClient.GetHomeTimeline(options);
-            while (posts.Count > 0)
-            {
-                foreach (var post in posts)
-                {
-                    Console.WriteLine(post.Url);
-
-                    if (post.Account.Id == botAccount.Id)
-                    {
-                        if (post.RepliesCount == 0)
-                            continue;
-                        var context = await mastodonClient.GetStatusContext(post.Id);
-
-                        if (context.Descendants.Count() > 0)
-                        {
-                            foreach (var reply in context.Descendants)
-                            {
-                                if (reply.Content.Contains("I mapped it!"))
-                                {
-                                    Console.WriteLine($"\t{reply.Url}");
-
-                                    bool alreadyReplied = false;
-                                    if (reply.RepliesCount != 0)
-                                    {
-                                        var replyContext = await mastodonClient.GetStatusContext(reply.Id);
-                                        foreach (var subReply in replyContext.Descendants)
-                                        {
-                                            if (post.Id == subReply.Id) // the first descendant is the original status message, skip
-                                                continue;
-
-                                            Console.WriteLine($"\t\t{subReply.Url}");
-
-                                            if (subReply.Account.Id == botAccount.Id)
-                                                alreadyReplied = true;
-                                        }
-                                    }
-
-                                    if (!alreadyReplied)
-                                    {
-                                        Console.WriteLine("\tNeeds Reply");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                options.MaxId = posts.NextPageMaxId;
-                posts = await mastodonClient.GetHomeTimeline(options);
-            }
-        }
-
         private async static Task<string> GetStateNameFromNominatim(double lat, double lon, HttpClient client)
         {
             var url = $"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=5";
@@ -200,6 +141,22 @@ namespace SmallCityMastodonBot
             var geoCodeResult = JsonConvert.DeserializeObject<ReverseGeocodeResult>(content);
 
             return geoCodeResult.address.state;
+        }
+
+        private static PostContent ParseStatus(Status post)
+        {
+            var content = new PostContent();
+            string postContentString = post.Content;
+
+            content.CityName = postContentString.Split(",")[0].Substring(3);
+            content.StateName = postContentString.Split(",")[1].Split(" ")[1];
+            content.Population = int.Parse(postContentString.Split(":")[1].Split("<")[0].Trim());
+            content.BuildingCount = int.Parse(postContentString.Split(":")[2].Split("<")[0].Trim());
+            content.RoadsToReview = int.Parse(postContentString.Split(":")[3].Split("<")[0].Trim());
+            content.Lattitude = double.Parse(postContentString.Substring(postContentString.IndexOf("#map=16")+8).Split("/")[0]);
+            content.Longitude = double.Parse(postContentString.Substring(postContentString.IndexOf("#map=16")+8).Split("/")[1].Split("\"")[0]);
+
+            return content;
         }
 
         static readonly int NUM_TILES_WIDE = 7;
@@ -251,5 +208,15 @@ namespace SmallCityMastodonBot
                 result.Save(outputFilePath, ImageFormat.Png);
             }
         }
+    }
+    public struct PostContent
+    {
+        public int Population;
+        public int BuildingCount;
+        public int RoadsToReview;
+        public double Lattitude;
+        public double Longitude;
+        public string CityName;
+        public string StateName;
     }
 }
