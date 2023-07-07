@@ -25,7 +25,7 @@ namespace SmallCityMastodonBot
                 {
                     try
                     {
-                        GeneratePost(args[0], logger, bot, httpClient);
+                        //GeneratePost(args[0], logger, bot, httpClient);
                         var task = ReplyToMappedItPosts(httpClient, args[0]);
                         task.Wait();
                     }
@@ -246,6 +246,17 @@ namespace SmallCityMastodonBot
                         // are there any replies?
                         if (context.Descendants.Count() > 0)
                         {
+                            PostContent pc;
+                            try
+                            {
+                                pc = ParseStatus(post);
+                            }
+                            catch
+                            {
+                                Console.WriteLine($"Unparsable status: {post.Url}");
+                                continue; // if it's not a pasrable status it isn't an OG town post, skip
+                            }
+
                             foreach (var reply in context.Descendants)
                             {
                                 // check all replies for a mapped it post.
