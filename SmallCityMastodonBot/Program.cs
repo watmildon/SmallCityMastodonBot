@@ -16,8 +16,28 @@ namespace SmallCityMastodonBot
         public static readonly int BUILDING_COUNT_MAXIMUM = 10;
         static void Main(string[] args)
         {
+            foreach (var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.png"))
+            {
+                Console.WriteLine($"Deleting {file}");
+                File.Delete(file);
+            }
+
             var botConfigInfo = JsonConvert.DeserializeObject<BotConfigFile>(File.ReadAllText("SmallCityBotConfig.json"));
-            HttpClient httpClient = new HttpClient();
+            HttpClient httpClient = new HttpClient()
+            {
+                DefaultRequestHeaders=
+                {
+                    CacheControl = CacheControlHeaderValue.Parse("no-cache, no-store"),
+                    Pragma = { NameValueHeaderValue.Parse("no-cache")}
+                }
+            };
+
+            var productValue = new ProductInfoHeaderValue("SmallTownUSABot", "0.1");
+            var commentValue = new ProductInfoHeaderValue("(https://en.osm.town/@SmallTownUSA)");
+
+            httpClient.DefaultRequestHeaders.UserAgent.Add(productValue);
+            httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
+            httpClient.DefaultRequestHeaders.Referrer = new Uri("https://www.openstreetmap.org/");
 
             using (StreamWriter logger = new StreamWriter("smallbot.log"))
             {
@@ -25,7 +45,7 @@ namespace SmallCityMastodonBot
                 {
                     try
                     {
-                        //GeneratePost(args[0], logger, bot, httpClient);
+                        GeneratePost(args[0], logger, bot, httpClient);
                         var task = ReplyToMappedItPosts(httpClient, args[0]);
                         task.Wait();
                     }
@@ -176,12 +196,6 @@ namespace SmallCityMastodonBot
             {
                 for (int j = 0; j < NUM_TILES_WIDE; j++)
                 {
-                    var productValue = new ProductInfoHeaderValue("SmallTownUSABot", "0.1");
-                    var commentValue = new ProductInfoHeaderValue("(https://en.osm.town/@SmallTownUSA)");
-
-                    httpClient.DefaultRequestHeaders.UserAgent.Add(productValue);
-                    httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
-
                     string url = $"https://tile.openstreetmap.org/{zoom}/{Math.Floor(p.X+i-TILE_COUNT_OFFSET)}/{Math.Floor(p.Y+j-TILE_COUNT_OFFSET)}.png";
                     Debug.WriteLine(url);
                     var imageTask = httpClient.GetByteArrayAsync(url);
@@ -313,13 +327,17 @@ namespace SmallCityMastodonBot
             Console.WriteLine($"POST TEXT: {thankYouText}");
             string imagePath = $"{originalContent.CityName}_TownImage_reply.png";
 
-            GenerateImageFromOSMTiles(httpClient, 16, originalContent.Lattitude, originalContent.Longitude, imagePath);
-            Console.WriteLine("Generated image");
+            // if two folks ask for the same town, we don't need to generate the image twice
+            if (!File.Exists(imagePath))
+            {
+                GenerateImageFromOSMTiles(httpClient, 16, originalContent.Lattitude, originalContent.Longitude, imagePath);
+                Console.WriteLine("Generated image");
+            }
 
             var attachment = await mastodonClient.UploadMedia(new MemoryStream(File.ReadAllBytes(imagePath)), imagePath, "Map image of the town showing the status as of the time of this posting.");
             var mediaIds = new List<string>() { attachment.Id };
 
-            await mastodonClient.PublishStatus(thankYouText, replyStatusId: mappedItPost.Id, mediaIds: mediaIds);
+            await mastodonClient.PublishStatus(thankYouText, replyStatusId: mappedItPost.Id, mediaIds: mediaIds, visibility: Visibility.Unlisted);
         }        
     }
     public struct PostContent
