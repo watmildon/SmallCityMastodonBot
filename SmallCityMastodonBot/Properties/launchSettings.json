@@ -2,7 +2,7 @@
   "profiles": {
     "SmallCityMastodonBot": {
       "commandName": "Project",
-      "commandLineArgs": "1EUxUw_BWd0qzQvD5wCJgK1hK3OMYU0PXhu0YMOqEuE"
+      "commandLineArgs": ""
     }
   }
 }
