@@ -27,7 +27,6 @@ namespace SmallCityMastodonBot
 
             using (StreamWriter logger = new StreamWriter("smallbot.log"))
             {
-
                 ParseArgs(args, logger);
 
                 foreach (var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.png"))
@@ -55,7 +54,6 @@ namespace SmallCityMastodonBot
                 httpClient.DefaultRequestHeaders.UserAgent.Add(productValue);
                 httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
                 httpClient.DefaultRequestHeaders.Referrer = new Uri("https://www.openstreetmap.org/");
-
 
                 foreach (var bot in botConfigInfo.botInfo)
                 {
@@ -105,7 +103,6 @@ namespace SmallCityMastodonBot
                 Console.WriteLine();
                 Console.WriteLine("USAGE: SmallCityMastodonBot apiKey [/postTown] [/postReplies]");
             }
-            
         }
 
         private static void GeneratePost(string apiToken, StreamWriter logger, Botinfo bot, HttpClient httpClient)
@@ -197,7 +194,7 @@ namespace SmallCityMastodonBot
                 GenerateImageFromOSMTiles(httpClient, 16, pickedTown.lat, pickedTown.lon, imagePath);
                 var imageBytes = File.ReadAllBytes(imagePath); //todo, get this from a memory stream from the call above
 
-                if (apiToken != "12345") // skip posting if we are running local
+                if (apiToken != "12345")  // skip posting if we are running with the dummy key
                 {
                     var tasks = PostTown(httpClient, postContent.ToString(), apiToken, imageBytes, imagePath, "Map image of the town showing the status as of the time of this posting");
                     tasks.Wait();
