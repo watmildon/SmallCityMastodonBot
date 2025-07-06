@@ -1,0 +1,30 @@
+name: Daily Build and Run SmallCityMastodonBot
+
+on:
+  schedule:
+    - cron: '0 19 * * *'  # 12 PM PT (19:00 UTC during DST)
+  workflow_dispatch:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore SmallCityMastodonBot.csproj
+
+      - name: Build project
+        run: dotnet build SmallCityMastodonBot.csproj --configuration Release
+
+      - name: Run project with API token
+        env:
+          API_TOKEN: ${{ secrets.MASTODON_API_KEY }}
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "/posttown"
