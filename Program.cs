@@ -18,6 +18,7 @@ namespace SmallCityMastodonBot
         public static readonly int BUILDING_COUNT_MAXIMUM = 10;
         public static bool postTown = false;
         public static bool postReplies = false;
+        public static string targetBotName = "";
         public static string apiKey = "";
         static void Main(string[] args)
         {
@@ -57,22 +58,26 @@ namespace SmallCityMastodonBot
 
             foreach (var bot in botConfigInfo.botInfo)
             {
-                try
+                if (bot.botName == targetBotName)
                 {
-                    if (postTown)
+                    Console.WriteLine($"INFO - Running {bot.botName}");
+                    try
                     {
-                        Console.WriteLine("Posting Town");
-                        GeneratePost(apiKey, bot, httpClient);
+                        if (postTown)
+                        {
+                            Console.WriteLine("Posting Town");
+                            GeneratePost(apiKey, bot, httpClient);
+                        }
+                        if (postReplies)
+                        {
+                            var task = ReplyToMappedItPosts(httpClient, apiKey);
+                            task.Wait();
+                        }
                     }
-                    if (postReplies)
+                    catch (Exception ex)
                     {
-                        var task = ReplyToMappedItPosts(httpClient, apiKey);
-                        task.Wait();
+                        Console.WriteLine(ex.ToString());
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.ToString());
                 }
             }
         }        
@@ -82,6 +87,7 @@ namespace SmallCityMastodonBot
             try
             {
                 apiKey = args[0];
+                targetBotName = args[1];
                 foreach (var arg in args)
                 {
                     if (arg.ToLowerInvariant().Contains("posttown"))
@@ -100,7 +106,7 @@ namespace SmallCityMastodonBot
             {
                 Console.WriteLine(ex.ToString());
                 Console.WriteLine();
-                Console.WriteLine("USAGE: SmallCityMastodonBot apiKey [/postTown] [/postReplies]");
+                Console.WriteLine("USAGE: SmallCityMastodonBot apiKey botName [/postTown] [/postReplies]");
             }
         }
 

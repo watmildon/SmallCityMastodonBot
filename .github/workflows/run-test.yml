@@ -23,4 +23,4 @@ jobs:
         run: dotnet build SmallCityMastodonBot.csproj --configuration Release
 
       - name: Run project with dummy api key so it doesn't post
-        run: dotnet run --project SmallCityMastodonBot.csproj -- "12345" "/posttown"
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "12345" "UnmappedSmallTownCanada" "/posttown"

@@ -26,6 +26,26 @@
         "populationText": "Population",
         "mapLinkText": "Map link"
       }
+    },
+    {
+      "botUrl": "@SmallTownCanada@en.osm.town",
+      "botDomain": "en.osm.town",
+      "botName": "UnmappedSmallTownCanada",
+      "townFile": "townsList_Canada.json",
+      "overpassQuery": [
+        {
+          "featureTag": "building",
+          "queryType": "count",
+          "countMaximum": "10",
+          "radiusInMeters": "800",
+          "message": "Building count"
+        }
+      ],
+      "postText": {
+        "greetingText": "seems like it could use some mapping!",
+        "populationText": "Population",
+        "mapLinkText": "Map link"
+      }
     }
   ]
 }

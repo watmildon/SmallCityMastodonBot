@@ -24,7 +24,12 @@ jobs:
       - name: Build project
         run: dotnet build SmallCityMastodonBot.csproj --configuration Release
 
-      - name: Run project with API token
+      - name: Run project for USA
         env:
           API_TOKEN: ${{ secrets.MASTODON_API_KEY }}
-        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "/posttown"
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "UnmappedSmallTownUSA" "/posttown"
+
+      - name: Run project for Canada
+        env:
+          API_TOKEN: ${{ secrets.MASTODON_API_KEY_CA }}
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "UnmappedSmallTownCanada" "/posttown"
