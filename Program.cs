@@ -19,66 +19,63 @@ namespace SmallCityMastodonBot
         public static string apiKey = "";
         static void Main(string[] args)
         {
-            if (args.Length == 0) 
-            { 
+            if (args.Length == 0)
+            {
                 Console.WriteLine("USAGE: SmallCityMastodonBot apiKey [/postTown] [/postReplies]");
-                return; 
+                return;
             }
 
-            using (StreamWriter logger = new StreamWriter("smallbot.log"))
+            ParseArgs(args);
+
+            foreach (var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.png"))
             {
-                ParseArgs(args, logger);
-
-                foreach (var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.png"))
+                if (!file.Contains("OSM_copyright.png"))
                 {
-                    if (!file.Contains("OSM_copyright.png"))
-                    {
-                        logger.WriteLine($"Deleting {file}");
-                        File.Delete(file);
-                    }
+                    Console.WriteLine($"Deleting {file}");
+                    File.Delete(file);
                 }
+            }
 
-                var botConfigInfo = JsonConvert.DeserializeObject<BotConfigFile>(File.ReadAllText("SmallCityBotConfig.json"));
-                HttpClient httpClient = new HttpClient()
-                {
-                    DefaultRequestHeaders=
+            var botConfigInfo = JsonConvert.DeserializeObject<BotConfigFile>(File.ReadAllText("SmallCityBotConfig.json"));
+            HttpClient httpClient = new HttpClient()
+            {
+                DefaultRequestHeaders =
                 {
                     CacheControl = CacheControlHeaderValue.Parse("no-cache, no-store"),
                     Pragma = { NameValueHeaderValue.Parse("no-cache")}
                 }
-                };
+            };
 
-                var productValue = new ProductInfoHeaderValue("SmallTownUSABot", "0.1");
-                var commentValue = new ProductInfoHeaderValue("(https://en.osm.town/@SmallTownUSA)");
+            var productValue = new ProductInfoHeaderValue("SmallTownUSABot", "0.1");
+            var commentValue = new ProductInfoHeaderValue("(https://en.osm.town/@SmallTownUSA)");
 
-                httpClient.DefaultRequestHeaders.UserAgent.Add(productValue);
-                httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
-                httpClient.DefaultRequestHeaders.Referrer = new Uri("https://www.openstreetmap.org/");
+            httpClient.DefaultRequestHeaders.UserAgent.Add(productValue);
+            httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
+            httpClient.DefaultRequestHeaders.Referrer = new Uri("https://www.openstreetmap.org/");
 
-                foreach (var bot in botConfigInfo.botInfo)
+            foreach (var bot in botConfigInfo.botInfo)
+            {
+                try
                 {
-                    try
+                    if (postTown)
                     {
-                        if (postTown)
-                        {
-                            logger.WriteLine("Posting Town");
-                            GeneratePost(apiKey, logger, bot, httpClient);
-                        }
-                        if (postReplies)
-                        {
-                            var task = ReplyToMappedItPosts(httpClient, apiKey);
-                            task.Wait();
-                        }
+                        Console.WriteLine("Posting Town");
+                        GeneratePost(apiKey, bot, httpClient);
                     }
-                    catch (Exception ex)
+                    if (postReplies)
                     {
-                        logger.WriteLine(ex.ToString());
+                        var task = ReplyToMappedItPosts(httpClient, apiKey);
+                        task.Wait();
                     }
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                }
             }
-        }
+        }        
 
-        private static void ParseArgs(string[] args, StreamWriter logger)
+        private static void ParseArgs(string[] args)
         {
             try
             {
@@ -87,12 +84,12 @@ namespace SmallCityMastodonBot
                 {
                     if (arg.ToLowerInvariant().Contains("posttown"))
                     {
-                        logger.WriteLine("Set to post town");
+                        Console.WriteLine("Set to post town");
                         postTown = true;
                     }
                     else if (arg.ToLowerInvariant().Contains("postreplies"))
                     {
-                        logger.WriteLine("Set to post replies");
+                        Console.WriteLine("Set to post replies");
                         postReplies = true;
                     }
                 }
@@ -105,7 +102,7 @@ namespace SmallCityMastodonBot
             }
         }
 
-        private static void GeneratePost(string apiToken, StreamWriter logger, Botinfo bot, HttpClient httpClient)
+        private static void GeneratePost(string apiToken, Botinfo bot, HttpClient httpClient)
         {
             string allText = System.IO.File.ReadAllText(bot.townFile);
 
@@ -116,7 +113,7 @@ namespace SmallCityMastodonBot
             bool posted = false;
             int townsSearched = 0;
 
-            logger.WriteLine("Begin town search");
+            Console.WriteLine("Begin town search");
 
             while (!posted)
             {
@@ -125,13 +122,13 @@ namespace SmallCityMastodonBot
                 if (pickedTown.tags.population == "0") // skip ghost towns for now, too many old rail stops as place=locality
                     continue;
 
-                logger.WriteLine($"Picked town: {pickedTown.id} {pickedTown.tags.name}");
+                Console.WriteLine($"Picked town: {pickedTown.id} {pickedTown.tags.name}");
 
                 List<string> queryResultPostText = new List<string>();
 
                 bool skipTown = false;
 
-                logger.WriteLine("Begin overpass querying");
+                Console.WriteLine("Begin overpass querying");
                 foreach (var query in bot.overpassQuery)
                 {
                     int count = queryBuilder.SendCountQuery(queryBuilder.CreateCountQuery(pickedTown.lat, pickedTown.lon, query.featureTag, query.radiusInMeters));
@@ -140,7 +137,7 @@ namespace SmallCityMastodonBot
                     {
                         if (count > query.countMaximum)
                         {
-                            logger.WriteLine($"{query.featureTag} returned {count}. Max value {query.countMaximum}");
+                            Console.WriteLine($"{query.featureTag} returned {count}. Max value {query.countMaximum}");
                             skipTown = true;
                             break;
                         }
@@ -151,7 +148,7 @@ namespace SmallCityMastodonBot
 
                 if (skipTown)
                 {
-                    logger.WriteLine("Skipping town");
+                    Console.WriteLine("Skipping town");
                     continue; // town was over one of the maximums
                 }                
 
@@ -160,7 +157,7 @@ namespace SmallCityMastodonBot
 
                 try
                 {
-                    logger.WriteLine($"Nominatim state lookup for: {osmLink}");
+                    Console.WriteLine($"Nominatim state lookup for: {osmLink}");
                     state = GetStateNameFromNominatim(pickedTown.lat, pickedTown.lon, httpClient).Result;
                 }
                 catch
@@ -168,7 +165,7 @@ namespace SmallCityMastodonBot
                     // very occasionally this nominatim lookup fails, we will try again unless we've been looping on it
                     if (townsSearched >= 100)
                     {
-                        logger.WriteLine("Aborting town lookup");
+                        Console.WriteLine("Aborting town lookup");
                         break;
                     }
                     continue;
@@ -185,10 +182,10 @@ namespace SmallCityMastodonBot
                 postContent.Append($"\r\n{bot.postText.mapLinkText}: {osmLink}\r\n#OpenStreetMap");
                 Console.WriteLine(postContent.ToString());
 
-                logger.WriteLine("POST TEXT GENERATED:");
-                logger.WriteLine(postContent.ToString());
+                Console.WriteLine("POST TEXT GENERATED:");
+                Console.WriteLine(postContent.ToString());
 
-                logger.WriteLine("Begin image generation");
+                Console.WriteLine("Begin image generation");
                 // generate image from tiles
                 string imagePath = $"{pickedTown.tags.name}_TownImage.png";
                 GenerateImageFromOSMTiles(httpClient, 16, pickedTown.lat, pickedTown.lon, imagePath);
@@ -196,13 +193,19 @@ namespace SmallCityMastodonBot
 
                 if (apiToken != "12345")  // skip posting if we are running with the dummy key
                 {
+                    Console.WriteLine("Posting town to mastodon account");
                     var tasks = PostTown(httpClient, postContent.ToString(), apiToken, imageBytes, imagePath, "Map image of the town showing the status as of the time of this posting");
                     tasks.Wait();
                 }
+                else
+                {
+                    Console.WriteLine("Not posting town.");
+                }
+            
                 posted = true;
             }
 
-            logger.WriteLine($"INFO - TOWNS SEARCHED: {townsSearched}");
+            Console.WriteLine($"INFO - TOWNS SEARCHED: {townsSearched}");
         }
 
         private static async Task PostTown(HttpClient client, string postContent, string token, byte[] image, string fileName, string altText)
