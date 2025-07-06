@@ -1,0 +1,26 @@
+name: Daily Build and Run SmallTownBot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore SmallTownBot.csproj
+
+      - name: Build project
+        run: dotnet build SmallTownBot.csproj --configuration Release
+
+      - name: Run project with dummy api key so it doesn't post
+        run: dotnet run --project SmallTownBot.csproj -- "12345" "/posttown"
