@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json;
-using overpass_parser;
-using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Net.Http.Headers;
+﻿using Mastonet.Entities;
 using Mastonet;
+using Newtonsoft.Json;
+using overpass_parser;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp;
+using System.Diagnostics;
+using System.Net.Http.Headers;
+using System.Numerics;
 using System.Text;
-using Mastonet.Entities;
 
 namespace SmallCityMastodonBot
 {
@@ -188,7 +190,8 @@ namespace SmallCityMastodonBot
                 Console.WriteLine("Begin image generation");
                 // generate image from tiles
                 string imagePath = $"{pickedTown.tags.name}_TownImage.png";
-                GenerateImageFromOSMTiles(httpClient, 16, pickedTown.lat, pickedTown.lon, imagePath);
+                var taskReturn = GenerateImageFromOSMTiles(httpClient, 16, pickedTown.lat, pickedTown.lon, imagePath);
+                taskReturn.Wait();
                 var imageBytes = File.ReadAllBytes(imagePath); //todo, get this from a memory stream from the call above
 
                 if (apiToken != "12345")  // skip posting if we are running with the dummy key
@@ -248,59 +251,52 @@ namespace SmallCityMastodonBot
 
         static readonly int NUM_TILES_WIDE = 7;
         static readonly int TILE_COUNT_OFFSET = 3; //used to center the town in the downloaded area
-        private static void GenerateImageFromOSMTiles(HttpClient httpClient, int zoom, double lat, double lon, string outputFilePath)
+        private static async Task GenerateImageFromOSMTiles(HttpClient httpClient, int zoom, double lat, double lon, string outputFilePath)
         {
-            var p = new PointF();
+            const int TILE_SIZE = 256;
+            const int NUM_TILES_WIDE = 3; // Adjust as needed
+            const int TILE_COUNT_OFFSET = NUM_TILES_WIDE / 2;
 
-            p.X = (float)((lon + 180.0) / 360.0 * (1 << zoom));
-            p.Y = (float)((1.0 - Math.Log(Math.Tan(lat * Math.PI / 180.0) +
-                1.0 / Math.Cos(lat * Math.PI / 180.0)) / Math.PI) / 2.0 * (1 << zoom));
+            // Convert lat/lon to tile coordinates
+            float x = (float)((lon + 180.0) / 360.0 * (1 << zoom));
+            float y = (float)((1.0 - Math.Log(Math.Tan(lat * Math.PI / 180.0) +
+                        1.0 / Math.Cos(lat * Math.PI / 180.0)) / Math.PI) / 2.0 * (1 << zoom));
 
-            System.Drawing.Image[,] images = new System.Drawing.Image[NUM_TILES_WIDE, NUM_TILES_WIDE];
+            // Create the final stitched image
+            using var resultImage = new Image<Rgba32>(NUM_TILES_WIDE * TILE_SIZE, NUM_TILES_WIDE * TILE_SIZE);
 
             for (int i = 0; i < NUM_TILES_WIDE; i++)
             {
                 for (int j = 0; j < NUM_TILES_WIDE; j++)
                 {
-                    string url = $"https://tile.openstreetmap.org/{zoom}/{Math.Floor(p.X+i-TILE_COUNT_OFFSET)}/{Math.Floor(p.Y+j-TILE_COUNT_OFFSET)}.png";
+                    int tileX = (int)Math.Floor(x + i - TILE_COUNT_OFFSET);
+                    int tileY = (int)Math.Floor(y + j - TILE_COUNT_OFFSET);
+                    string url = $"https://tile.openstreetmap.org/{zoom}/{tileX}/{tileY}.png";
+
                     Debug.WriteLine(url);
-                    var imageTask = httpClient.GetByteArrayAsync(url);
-                    Task.WaitAll(imageTask);
-                    var imageContent = imageTask.Result;
 
-                    using (MemoryStream mem = new MemoryStream(imageContent))
-                    {
-                        var yourImage = System.Drawing.Image.FromStream(mem);
-                        {
-                            images[i, j] = yourImage;
-                        }
-                    }
+                    byte[] imageBytes = await httpClient.GetByteArrayAsync(url);
+                    using var tileImage = Image.Load<Rgba32>(imageBytes);
+
+                    int destX = i * TILE_SIZE;
+                    int destY = j * TILE_SIZE;
+
+                    resultImage.Mutate(ctx => ctx.DrawImage(tileImage, new Point(destX, destY), 1f));
                 }
             }
 
-            using (Bitmap result = new Bitmap(NUM_TILES_WIDE * 256, NUM_TILES_WIDE * 256))
-            {
-                //build image
-                for (int x = 0; x < NUM_TILES_WIDE; x++)
-                {
-                    for (int y = 0; y < NUM_TILES_WIDE; y++)
-                        using (Graphics g = Graphics.FromImage(result))
-                        {
-                            var img = images[x, y];
-                            g.DrawImage(img, x * 256, y * 256, 256, 256);
-                        }
-                }
+            // Overlay copyright image
+            using var copyrightImage = Image.Load<Rgba32>("OSM_copyright.png");
+            int copyrightX = resultImage.Width - copyrightImage.Width;
+            int copyrightY = resultImage.Height - copyrightImage.Height;
 
-                //burn in copyright
-                using (Graphics g = Graphics.FromImage(result))
-                {
-                    Image img = Image.FromStream(new MemoryStream(File.ReadAllBytes("OSM_copyright.png")));
-                    g.DrawImage(img, (NUM_TILES_WIDE * 256) - 249, (NUM_TILES_WIDE * 256) - 21, 249, 21);
-                }
+            resultImage.Mutate(ctx => ctx.DrawImage(copyrightImage, new Point(copyrightX, copyrightY), 1f));
 
-                result.Save(outputFilePath, ImageFormat.Png);
-            }
+            // Save the final image
+            Console.WriteLine($"Saving image to {outputFilePath}");
+            await resultImage.SaveAsPngAsync(outputFilePath);
         }
+
 
         private static async Task ReplyToMappedItPosts(HttpClient client, string token)
         {
