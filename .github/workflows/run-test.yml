@@ -1,4 +1,4 @@
-name: Daily Build and Run SmallCityMastodonBot
+name: Test Build and Run SmallCityMastodonBot
 
 on:
   workflow_dispatch:
