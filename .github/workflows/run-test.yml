@@ -1,4 +1,4 @@
-name: Daily Build and Run SmallTownBot
+name: Daily Build and Run SmallCityMastodonBot
 
 on:
   workflow_dispatch:
@@ -17,10 +17,10 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore SmallTownBot.csproj
+        run: dotnet restore SmallCityMastodonBot.csproj
 
       - name: Build project
-        run: dotnet build SmallTownBot.csproj --configuration Release
+        run: dotnet build SmallCityMastodonBot.csproj --configuration Release
 
       - name: Run project with dummy api key so it doesn't post
-        run: dotnet run --project SmallTownBot.csproj -- "12345" "/posttown"
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "12345" "/posttown"
