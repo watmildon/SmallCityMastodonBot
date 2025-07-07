@@ -1,31 +1,33 @@
-# SmallCityMastodonBot
-The repository for code and data file backing the [@SmallTownUSA@en.osm.town](https://en.osm.town/@SmallTownUSA) account. Takes a json file of OpenStreetMap place nodes and a Mastodon token and finds a random unmapped town to post about. The post includes an image that is the current state of Carto rendering at the time of posting.
 
-All of the cool things the bot does have come from community ideas. Please let me know what else you'd like to see!
+# SmallCityMastodonBot
+
+This repository contains the code, datafiles, and github actions to run various regional SmallTownBot accounts:
+*  [@SmallTownUSA@en.osm.town](https://en.osm.town/@SmallTownUSA) 
+* [@SmallTownCanada@en.osm.town](https://en.osm.town/@SmallTownCanada) 
+
+Once per day, these bots find an undermapped town in their given region and post about it on the [OSM mastodon instance](https://en.osm.town).  
+
 
 ## Mapping
-As with all of OSM, map whatever you like! Add buildings, check roadways for alignment to aerial imagery, draw landuse areas, use street side imagery to add detail etc. If you want to make it easier to other folks to collaborate or appreciate your great work feel free to add #UnmappedSmallTownUSA to your changsets.
 
-## Bot replies
-If you do some mapping and would like the bot to generate an updated screen shot, respond to the top level town post (ex: [here](https://en.osm.town/@SmallTownUSA/110663015761350007)) with any message that contains "I mapped it!". 
+As with all of OSM, map whatever you like! Add buildings, check roadways for alignment to aerial imagery, draw landuse areas, use street side imagery to add detail etc. If you want to make it easier to other folks to collaborate or appreciate your great work feel free to add appropriate hash tags to your changsets. (ex: #UnmappedSmallTownUSA, #UnmappedSmallTownCA)
+  
+## Adding a region
+If you would like to create a new regional SmallTownBot account, please do! You'll want to make sure your region has data in OSM using the common `place` and `populaiton` tags.
 
-The bot tries to get updated tiles from the OSM tileservers but sometimes may need a little help. If you discover that the bot hasn't managed to pull new tiles you can help it along:
-* navigate to the town on osm.org
-* scroll to zoom 16
-* reload the page without caching (ctrl+f5 on Windows, shift+command+r on Mac)
-* post a new "I mapped it!" reply
+Here's the steps to get it set up:
+* Create a mostodon account, all of the current bots are on https://en.osm.town
+* Optional: add your version of the bot with flag avatar, the template is in the repo under images
+* Contact me and let me know what the account API key is so I can add it to the repository secrets
+* Generate a regional datafile of towns using Overpass. It should look like townsList.json
+* Add this file to the repo as townsList_REGION.json
+* Add a section to SmallCityBotConfig.json. Your bot must have a unique name.
+* Test run the bot (see below)
+* Add a run command for your bot in .github/workflows/daily-run.yml
 
-## Current settings
-The bot is set to post a new town once a day around noon PT. It will scan for posts needing replies every hour. If you discover that either of these is not happening, please file a ticket here or ping [me on Mastodon](https://en.osm.town/@watmildon).
+### Testing 
+The bot is set up to run in VS Code and should execute everything except posting to Mastodon. To run one of the bots, change `args` in .vscode/launch.json. The first argument `12345` is the signal to the bot that you are running in test mode. You should see a bunch of output to the console to demonstrate that the bot is working and completed execution.
 
-## Development Notes
-The overpass query to generate the townsList.json looks like:
-```
-[out:json][timeout:60];
-{{geocodeArea:"United States"}}->.a;
-(
-  node["population"]["place"](if:(t["population"]<"1000"))(area.a);
-);
-out body;
->;
-```
+
+## More info
+Check out the [wiki](https://github.com/watmildon/SmallCityMastodonBot/wiki).
