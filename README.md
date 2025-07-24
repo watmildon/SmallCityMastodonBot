@@ -13,7 +13,7 @@ Once per day, these bots find an undermapped town in their given region and post
 As with all of OSM, map whatever you like! Add buildings, check roadways for alignment to aerial imagery, draw landuse areas, use street side imagery to add detail etc. If you want to make it easier to other folks to collaborate or appreciate your great work feel free to add appropriate hash tags to your changsets. (ex: #UnmappedSmallTownUSA, #UnmappedSmallTownCA)
   
 ## Adding a region
-If you would like to create a new regional SmallTownBot account, please do! You'll want to make sure your region has data in OSM using the common `place` and `populaiton` tags.
+If you would like to create a new regional SmallTownBot account, please do! You'll want to make sure your region has data in OSM using the common `place` and `population` tags.
 
 Here's the steps to get it set up:
 * Create a mostodon account, all of the current bots are on https://en.osm.town
