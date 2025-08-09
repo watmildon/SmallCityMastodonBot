@@ -46,6 +46,26 @@
         "populationText": "Population",
         "mapLinkText": "Map link"
       }
+    },
+    {
+      "botUrl": "@SmallTownBrazil@en.osm.town",
+      "botDomain": "en.osm.town",
+      "botName": "UnmappedSmallTownBrazil",
+      "townFile": "townsList_Brazil.json",
+      "overpassQuery": [
+        {
+          "featureTag": "building",
+          "queryType": "count",
+          "countMaximum": "10",
+          "radiusInMeters": "800",
+          "message": "Contagem de edificações"
+        }
+      ],
+      "postText": {
+        "greetingText": "parece que precisa de mapeamento!",
+        "populationText": "População",
+        "mapLinkText": "Link do mapa"
+      }
     }
   ]
 }

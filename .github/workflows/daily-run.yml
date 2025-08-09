@@ -33,3 +33,8 @@ jobs:
         env:
           API_TOKEN: ${{ secrets.MASTODON_API_KEY_CA }}
         run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "UnmappedSmallTownCanada" "/posttown"
+
+      - name: Run project for Brazil
+        env:
+          API_TOKEN: ${{ secrets.MASTODON_API_KEY_BR }}
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "UnmappedSmallTownBrazil" "/posttown"
