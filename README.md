@@ -2,8 +2,10 @@
 # SmallCityMastodonBot
 
 This repository contains the code, datafiles, and github actions to run various regional SmallTownBot accounts:
-*  [@SmallTownUSA@en.osm.town](https://en.osm.town/@SmallTownUSA) 
-* [@SmallTownCanada@en.osm.town](https://en.osm.town/@SmallTownCanada) 
+
+* [@SmallTownBrazil@en.osm.town](https://en.osm.town/@SmallTownBrazil)
+* [@SmallTownCanada@en.osm.town](https://en.osm.town/@SmallTownCanada)
+* [@SmallTownUSA@en.osm.town](https://en.osm.town/@SmallTownUSA) 
 
 Once per day, these bots find an undermapped town in their given region and post about it on the [OSM mastodon instance](https://en.osm.town).  
 
