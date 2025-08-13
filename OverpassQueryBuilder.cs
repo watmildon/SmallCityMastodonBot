@@ -34,7 +34,8 @@ namespace overpass_parser
             }
 
             // URL for the Overpass API endpoint
-            string overpassUrl = "https://overpass-api.de/api/interpreter";
+            //string overpassUrl = "https://overpass-api.de/api/interpreter"; // main instance, down 8/12/2025ish
+            string overpassUrl = "https://overpass.private.coffee/api/interpreter";
 
             // set up the request
             HttpRequestMessage request = new(HttpMethod.Post, overpassUrl);
