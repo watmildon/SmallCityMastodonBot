@@ -24,30 +24,32 @@ namespace overpass_parser
         private static readonly long queryThrottle = 500;
 
         public string SendQuery(string overpassQuery)
+{
+    const int maxRetries = 3;
+    const int delayMilliseconds = 10000;
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
         {
             long currentTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
 
             if (currentTime - lastQueryTime < queryThrottle)
             {
-                Thread.Sleep((int)(queryThrottle - (currentTime - lastQueryTime)));
-                Console.WriteLine($"Slept for {(queryThrottle - (currentTime - lastQueryTime)) / 1000.0} seconds");
+                int sleepTime = (int)(queryThrottle - (currentTime - lastQueryTime));
+                Thread.Sleep(sleepTime);
+                Console.WriteLine($"Slept for {sleepTime / 1000.0} seconds");
             }
 
-            // URL for the Overpass API endpoint
-            //string overpassUrl = "https://overpass-api.de/api/interpreter"; // main instance, down 8/12/2025ish
             string overpassUrl = "https://overpass.private.coffee/api/interpreter";
 
-            // set up the request
             HttpRequestMessage request = new(HttpMethod.Post, overpassUrl);
             request.Headers.Add("User-Agent", Program.userAgent);
             request.Content = new StringContent(overpassQuery);
 
-            // record time we sent the query
             lastQueryTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
 
-            // send the query
             HttpResponseMessage response = httpClient.Send(request);
-
             response.EnsureSuccessStatusCode();
 
             var contentTask = response.Content.ReadAsStringAsync();
@@ -55,6 +57,21 @@ namespace overpass_parser
 
             return contentTask.Result;
         }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"Attempt {attempt} failed: {ex.Message}");
+
+            if (attempt == maxRetries)
+            {
+                throw new TimeoutException("SendQuery failed after 3 attempts due to network issues.", ex);
+            }
+
+            Thread.Sleep(delayMilliseconds);
+        }
+    }
+
+    throw new InvalidOperationException("Unexpected error in SendQuery.");
+}
 
         public int SendCountQuery(string overpassQuery)
         {
