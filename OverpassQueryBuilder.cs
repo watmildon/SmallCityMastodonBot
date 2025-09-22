@@ -24,59 +24,75 @@ namespace overpass_parser
         private static readonly long queryThrottle = 500;
 
         public string SendQuery(string overpassQuery)
-{
-    const int maxRetries = 3;
-    const int delayMilliseconds = 10000;
-
-    for (int attempt = 1; attempt <= maxRetries; attempt++)
-    {
-        try
         {
-            long currentTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+            const int maxRetries = 3;
+            const int delayMilliseconds = 10000;
 
-            if (currentTime - lastQueryTime < queryThrottle)
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                int sleepTime = (int)(queryThrottle - (currentTime - lastQueryTime));
-                Thread.Sleep(sleepTime);
-                Console.WriteLine($"Slept for {sleepTime / 1000.0} seconds");
+                try
+                {
+                    long currentTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
+                    if (currentTime - lastQueryTime < queryThrottle)
+                    {
+                        int sleepTime = (int)(queryThrottle - (currentTime - lastQueryTime));
+                        Thread.Sleep(sleepTime);
+                        Console.WriteLine($"Slept for {sleepTime / 1000.0} seconds");
+                    }
+
+                    string overpassUrl = "https://overpass.private.coffee/api/interpreter";
+
+                    HttpRequestMessage request = new(HttpMethod.Post, overpassUrl);
+                    request.Headers.Add("User-Agent", Program.userAgent);
+                    request.Content = new StringContent(overpassQuery);
+
+                    lastQueryTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
+                    HttpResponseMessage response = httpClient.Send(request);
+                    response.EnsureSuccessStatusCode();
+
+                    var contentTask = response.Content.ReadAsStringAsync();
+                    contentTask.Wait();
+
+                    return contentTask.Result;
+                }
+                catch (HttpRequestException ex)
+                {
+                    Console.WriteLine($"Attempt {attempt} failed: {ex.Message}");
+
+                    if (attempt == maxRetries)
+                    {
+                        throw new TimeoutException("SendQuery failed after 3 attempts due to network issues.", ex);
+                    }
+
+                    Thread.Sleep(delayMilliseconds);
+                }
             }
 
-            string overpassUrl = "https://overpass.private.coffee/api/interpreter";
-
-            HttpRequestMessage request = new(HttpMethod.Post, overpassUrl);
-            request.Headers.Add("User-Agent", Program.userAgent);
-            request.Content = new StringContent(overpassQuery);
-
-            lastQueryTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-
-            HttpResponseMessage response = httpClient.Send(request);
-            response.EnsureSuccessStatusCode();
-
-            var contentTask = response.Content.ReadAsStringAsync();
-            contentTask.Wait();
-
-            return contentTask.Result;
+            throw new InvalidOperationException("Unexpected error in SendQuery.");
         }
-        catch (HttpRequestException ex)
-        {
-            Console.WriteLine($"Attempt {attempt} failed: {ex.Message}");
-
-            if (attempt == maxRetries)
-            {
-                throw new TimeoutException("SendQuery failed after 3 attempts due to network issues.", ex);
-            }
-
-            Thread.Sleep(delayMilliseconds);
-        }
-    }
-
-    throw new InvalidOperationException("Unexpected error in SendQuery.");
-}
 
         public int SendCountQuery(string overpassQuery)
         {
-            var jsonResult = SendQuery(overpassQuery);
-            return Int32.Parse(JsonConvert.DeserializeObject<CountQueryData>(jsonResult).elements[0].tags.total);
+            string jsonResult = "";
+            try
+            {
+                jsonResult = SendQuery(overpassQuery);
+                return Int32.Parse(JsonConvert.DeserializeObject<CountQueryData>(jsonResult).elements[0].tags.total);
+            }
+            catch (JsonReaderException ex)
+            {
+                Console.WriteLine("ERROR: JsonReaderException");
+                Console.WriteLine();
+                Console.WriteLine($"Overpass Query: {overpassQuery}");
+                Console.WriteLine();
+                Console.WriteLine($"JsonResult: {jsonResult}");
+                Console.WriteLine();
+                Console.WriteLine(ex.Message);
+
+                throw;
+            }
         }
     }
 }
