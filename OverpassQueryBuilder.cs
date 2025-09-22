@@ -41,7 +41,8 @@ namespace overpass_parser
                         Console.WriteLine($"Slept for {sleepTime / 1000.0} seconds");
                     }
 
-                    string overpassUrl = "https://overpass.private.coffee/api/interpreter";
+                    string overpassUrl = "https://overpass-api.de/api/interpreter"; // main instance, down 8/12/2025ish
+                    //string overpassUrl = "https://overpass.private.coffee/api/interpreter";
 
                     HttpRequestMessage request = new(HttpMethod.Post, overpassUrl);
                     request.Headers.Add("User-Agent", Program.userAgent);
@@ -79,7 +80,11 @@ namespace overpass_parser
             try
             {
                 jsonResult = SendQuery(overpassQuery);
-                return Int32.Parse(JsonConvert.DeserializeObject<CountQueryData>(jsonResult).elements[0].tags.total);
+                var cqd = JsonConvert.DeserializeObject<CountQueryData>(jsonResult);
+                var tags = cqd.elements[0].tags;
+                string count = tags.total;
+
+                return Int32.Parse(count);
             }
             catch (JsonReaderException ex)
             {
