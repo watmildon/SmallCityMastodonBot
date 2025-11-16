@@ -33,3 +33,5 @@ The bot is set up to run in VS Code and should execute everything except posting
 
 ## More info
 Check out the [wiki](https://github.com/watmildon/SmallCityMastodonBot/wiki).
+
+  
