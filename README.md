@@ -9,6 +9,7 @@ This repository contains the code, datafiles, and github actions to run various 
 
 Once per day, these bots find an undermapped town in their given region and post about it on the [OSM mastodon instance](https://en.osm.town).  
 
+I gave a talk at State of the Map US after the bot had been running for about a year. You can view it here: https://www.youtube.com/watch?v=CTk6T0wHeHg 
 
 ## Mapping
 
