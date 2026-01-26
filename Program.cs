@@ -56,10 +56,12 @@ namespace SmallCityMastodonBot
             httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
             httpClient.DefaultRequestHeaders.Referrer = new Uri("https://www.openstreetmap.org/");
 
+            bool botFound = false;
             foreach (var bot in botConfigInfo.botInfo)
             {
                 if (bot.botName == targetBotName)
                 {
+                    botFound = true;
                     Console.WriteLine($"INFO - Running {bot.botName}");
                     try
                     {
@@ -79,6 +81,12 @@ namespace SmallCityMastodonBot
                         Console.WriteLine(ex.ToString());
                     }
                 }
+            }
+
+            if (!botFound)
+            {
+                Console.WriteLine($"ERROR: Bot '{targetBotName}' not found in SmallCityBotConfig.json");
+                Console.WriteLine($"Available bots: {string.Join(", ", botConfigInfo.botInfo.Select(b => b.botName))}");
             }
         }        
 
@@ -309,73 +317,157 @@ namespace SmallCityMastodonBot
             var domain = "en.osm.town";
             var mastodonClient = new MastodonClient(domain, token, client);
             var botAccount = await mastodonClient.GetCurrentUser();
-            var options = new ArrayOptions();
 
-            var posts = await mastodonClient.GetHomeTimeline(options);
-            while (posts.Count > 0)
+            // Read last-processed notification ID from Mastodon Markers API
+            string? sinceId = null;
+            try
             {
-                foreach (var post in posts)
+                var markers = await mastodonClient.GetMarkers(notifications: true);
+                if (markers?.Notifications != null && markers.Notifications.LastReadId > 0)
                 {
-                    Console.WriteLine(post.Url);
+                    sinceId = markers.Notifications.LastReadId.ToString();
+                    Console.WriteLine($"Resuming from notification marker: {sinceId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"WARNING: Could not read notification marker: {ex.Message}");
+                Console.WriteLine("Will process recent notifications without since_id filter");
+            }
 
-                    if (post.Account.Id == botAccount.Id)
+            // Fetch mention-only notifications since last processed
+            var excludeTypes = NotificationType.Follow
+                             | NotificationType.Favourite
+                             | NotificationType.Reblog
+                             | NotificationType.Poll
+                             | NotificationType.FollowRequest;
+
+            var options = new ArrayOptions { SinceId = sinceId };
+            string? highestNotificationId = null;
+
+            var allNotifications = new List<Notification>();
+            var notifications = await mastodonClient.GetNotifications(options, excludeTypes);
+            while (notifications.Count > 0)
+            {
+                allNotifications.AddRange(notifications);
+
+                if (notifications.NextPageMaxId == null)
+                    break;
+
+                options = new ArrayOptions
+                {
+                    SinceId = sinceId,
+                    MaxId = notifications.NextPageMaxId
+                };
+                notifications = await mastodonClient.GetNotifications(options, excludeTypes);
+            }
+
+            Console.WriteLine($"Found {allNotifications.Count} new mention notifications");
+
+            // Track highest notification ID for saving marker later
+            // Notifications come most-recent-first, so first one has the highest ID
+            if (allNotifications.Count > 0)
+            {
+                highestNotificationId = allNotifications[0].Id;
+            }
+
+            // Process each mention notification
+            foreach (var notification in allNotifications)
+            {
+                if (notification.Type != "mention" || notification.Status == null)
+                    continue;
+
+                var replyStatus = notification.Status;
+                Console.WriteLine($"Processing notification {notification.Id}: {replyStatus.Url}");
+
+                // Check if the reply contains "mapped it!"
+                if (!replyStatus.Content.Contains(" mapped it!"))
+                {
+                    Console.WriteLine($"\tNot a 'mapped it!' reply, skipping");
+                    continue;
+                }
+
+                // Check if this is a reply to one of the bot's posts
+                if (replyStatus.InReplyToAccountId != botAccount.Id)
+                {
+                    Console.WriteLine($"\tNot a reply to bot, skipping");
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(replyStatus.InReplyToId))
+                {
+                    Console.WriteLine($"\tNo parent status ID, skipping");
+                    continue;
+                }
+
+                // Fetch the original bot post to parse city/coordinates
+                Status originalPost;
+                try
+                {
+                    originalPost = await mastodonClient.GetStatus(replyStatus.InReplyToId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"\tFailed to fetch parent status {replyStatus.InReplyToId}: {ex.Message}");
+                    continue;
+                }
+
+                PostContent pc;
+                try
+                {
+                    pc = ParseStatus(originalPost);
+                }
+                catch
+                {
+                    Console.WriteLine($"\tUnparsable parent status: {originalPost.Url}");
+                    continue;
+                }
+
+                // Check if bot already replied to this "mapped it!" post
+                bool alreadyReplied = false;
+                if (replyStatus.RepliesCount > 0)
+                {
+                    try
                     {
-                        if (post.RepliesCount == 0)
-                            continue;
-
-                        var context = await mastodonClient.GetStatusContext(post.Id);
-
-                        // are there any replies?
-                        if (context.Descendants.Count() > 0)
+                        var replyContext = await mastodonClient.GetStatusContext(replyStatus.Id);
+                        foreach (var subReply in replyContext.Descendants)
                         {
-                            PostContent pc;
-                            try
+                            if (subReply.Account.Id == botAccount.Id)
                             {
-                                pc = ParseStatus(post);
-                            }
-                            catch
-                            {
-                                Console.WriteLine($"Unparsable status: {post.Url}");
-                                continue; // if it's not a pasrable status it isn't an OG town post, skip
-                            }
-
-                            foreach (var reply in context.Descendants)
-                            {
-                                // check all replies for a mapped it post.
-                                if (reply.Content.Contains(" mapped it!"))
-                                {
-                                    Console.WriteLine($"\t{reply.Url}");
-
-                                    bool alreadyReplied = false;
-
-                                    // check to see if the bot has already replied
-                                    if (reply.RepliesCount != 0)
-                                    {
-                                        var replyContext = await mastodonClient.GetStatusContext(reply.Id);
-                                        foreach (var subReply in replyContext.Descendants)
-                                        {
-                                            if (post.Id == subReply.Id) // the first descendant is the original status message, skip
-                                                continue;
-
-                                            Console.WriteLine($"\t\t{subReply.Url}");
-
-                                            if (subReply.Account.Id == botAccount.Id)
-                                                alreadyReplied = true;
-                                        }
-                                    }
-
-                                    if (!alreadyReplied)
-                                    {
-                                        await PostMappingReply(client, token, reply, ParseStatus(post));
-                                    }
-                                }
+                                alreadyReplied = true;
+                                break;
                             }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"\tFailed to check reply context: {ex.Message}");
+                        alreadyReplied = true; // err on the side of not double-replying
+                    }
                 }
 
-                options.MaxId = posts.NextPageMaxId;
-                posts = await mastodonClient.GetHomeTimeline(options);
+                if (alreadyReplied)
+                {
+                    Console.WriteLine($"\tAlready replied, skipping");
+                    continue;
+                }
+
+                Console.WriteLine($"\tPosting mapping reply for {pc.CityName}");
+                await PostMappingReply(client, token, replyStatus, pc);
+            }
+
+            // Save the highest notification ID to the marker
+            if (highestNotificationId != null)
+            {
+                try
+                {
+                    await mastodonClient.SetMarkers(notificationLastReadId: highestNotificationId);
+                    Console.WriteLine($"Saved notification marker: {highestNotificationId}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"WARNING: Failed to save notification marker: {ex.Message}");
+                }
             }
         }
 
