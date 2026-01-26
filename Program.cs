@@ -39,7 +39,8 @@ namespace SmallCityMastodonBot
                 }
             }
 
-            var botConfigInfo = JsonConvert.DeserializeObject<BotConfigFile>(File.ReadAllText("SmallCityBotConfig.json"));
+            var botConfigInfo = JsonConvert.DeserializeObject<BotConfigFile>(File.ReadAllText("SmallCityBotConfig.json"))
+                ?? throw new InvalidOperationException("Failed to deserialize SmallCityBotConfig.json");
             HttpClient httpClient = new HttpClient()
             {
                 DefaultRequestHeaders =
@@ -122,7 +123,8 @@ namespace SmallCityMastodonBot
         {
             string allText = System.IO.File.ReadAllText(bot.townFile);
 
-            TownsData2 data = JsonConvert.DeserializeObject<TownsData2>(allText);
+            TownsData2 data = JsonConvert.DeserializeObject<TownsData2>(allText)
+                ?? throw new InvalidOperationException($"Failed to deserialize {bot.townFile}");
             Random rnd = new Random(Guid.NewGuid().GetHashCode());
             OverpassQueryBuilder queryBuilder = new OverpassQueryBuilder(httpClient);
 
@@ -242,7 +244,8 @@ namespace SmallCityMastodonBot
             var res = await client.SendAsync(msg);
             var content = await res.Content.ReadAsStringAsync();
 
-            var geoCodeResult = JsonConvert.DeserializeObject<ReverseGeocodeResult>(content);
+            var geoCodeResult = JsonConvert.DeserializeObject<ReverseGeocodeResult>(content)
+                ?? throw new InvalidOperationException("Failed to deserialize Nominatim response");
 
             return geoCodeResult.address.state;
         }
@@ -263,8 +266,6 @@ namespace SmallCityMastodonBot
             return content;
         }
 
-        static readonly int NUM_TILES_WIDE = 7;
-        static readonly int TILE_COUNT_OFFSET = 3; //used to center the town in the downloaded area
         private static async Task GenerateImageFromOSMTiles(HttpClient httpClient, int zoom, double lat, double lon, string outputFilePath)
         {
             const int TILE_SIZE = 256;
@@ -490,7 +491,7 @@ namespace SmallCityMastodonBot
             // if two folks ask for the same town, we don't need to generate the image twice
             if (!File.Exists(imagePath))
             {
-                GenerateImageFromOSMTiles(httpClient, 16, originalContent.Lattitude, originalContent.Longitude, imagePath);
+                await GenerateImageFromOSMTiles(httpClient, 16, originalContent.Lattitude, originalContent.Longitude, imagePath);
                 Console.WriteLine("Generated image");
             }
 

@@ -80,7 +80,8 @@ namespace overpass_parser
             try
             {
                 jsonResult = SendQuery(overpassQuery);
-                var cqd = JsonConvert.DeserializeObject<CountQueryData>(jsonResult);
+                var cqd = JsonConvert.DeserializeObject<CountQueryData>(jsonResult)
+                    ?? throw new InvalidOperationException("Failed to deserialize Overpass count query response");
                 var tags = cqd.elements[0].tags;
                 string count = tags.total;
 
