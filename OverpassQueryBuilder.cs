@@ -1,6 +1,8 @@
 ﻿using GeoCoordinatePortable;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SmallCityMastodonBot;
+using System.Net;
 using System.Text;
 using System.Xml.Serialization;
 
@@ -9,6 +11,18 @@ namespace overpass_parser
     public class OverpassQueryBuilder
     {
         private readonly HttpClient httpClient;
+
+        private static readonly string[] OverpassEndpoints =
+        [
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+            "https://overpass.private.coffee/api/interpreter",
+        ];
+
+        private const int MaxPasses = 2;
+        private const int RequestTimeoutSeconds = 60;
+        private const int RateLimitDelayMs = 2000;
 
         public OverpassQueryBuilder(HttpClient httpClient)
         {
@@ -25,53 +39,97 @@ namespace overpass_parser
 
         public string SendQuery(string overpassQuery)
         {
-            const int maxRetries = 3;
-            const int delayMilliseconds = 10000;
+            Exception? lastException = null;
 
-            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            for (int pass = 0; pass < MaxPasses; pass++)
             {
-                try
+                foreach (var endpoint in OverpassEndpoints)
                 {
-                    long currentTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-
-                    if (currentTime - lastQueryTime < queryThrottle)
+                    try
                     {
-                        int sleepTime = (int)(queryThrottle - (currentTime - lastQueryTime));
-                        Thread.Sleep(sleepTime);
-                        Console.WriteLine($"Slept for {sleepTime / 1000.0} seconds");
+                        // Throttle between queries regardless of endpoint
+                        long currentTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+                        if (currentTime - lastQueryTime < queryThrottle)
+                        {
+                            int sleepTime = (int)(queryThrottle - (currentTime - lastQueryTime));
+                            Thread.Sleep(sleepTime);
+                        }
+
+                        Console.WriteLine($"Querying {endpoint} (pass {pass + 1}/{MaxPasses})");
+
+                        HttpRequestMessage request = new(HttpMethod.Post, endpoint);
+                        request.Headers.Add("User-Agent", Program.userAgent);
+                        request.Content = new StringContent(overpassQuery);
+
+                        lastQueryTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(RequestTimeoutSeconds));
+                        var responseTask = httpClient.SendAsync(request, cts.Token);
+                        responseTask.Wait(cts.Token);
+                        var response = responseTask.Result;
+
+                        // Handle rate limiting: wait briefly then try next endpoint
+                        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                        {
+                            Console.WriteLine($"Rate limited (429) by {endpoint}, trying next endpoint");
+                            Thread.Sleep(RateLimitDelayMs);
+                            continue;
+                        }
+
+                        response.EnsureSuccessStatusCode();
+
+                        var contentTask = response.Content.ReadAsStringAsync();
+                        contentTask.Wait();
+                        string result = contentTask.Result;
+
+                        // Check for Overpass server-side errors returned as HTTP 200
+                        if (ResponseHasRemark(result))
+                        {
+                            Console.WriteLine($"Overpass remark (server-side error) from {endpoint}, trying next endpoint");
+                            continue;
+                        }
+
+                        return result;
                     }
-
-                    string overpassUrl = "https://overpass-api.de/api/interpreter"; // main instance, down 8/12/2025ish
-                    //string overpassUrl = "https://overpass.private.coffee/api/interpreter";
-
-                    HttpRequestMessage request = new(HttpMethod.Post, overpassUrl);
-                    request.Headers.Add("User-Agent", Program.userAgent);
-                    request.Content = new StringContent(overpassQuery);
-
-                    lastQueryTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-
-                    HttpResponseMessage response = httpClient.Send(request);
-                    response.EnsureSuccessStatusCode();
-
-                    var contentTask = response.Content.ReadAsStringAsync();
-                    contentTask.Wait();
-
-                    return contentTask.Result;
-                }
-                catch (HttpRequestException ex)
-                {
-                    Console.WriteLine($"Attempt {attempt} failed: {ex.Message}");
-
-                    if (attempt == maxRetries)
+                    catch (OperationCanceledException)
                     {
-                        throw new TimeoutException("SendQuery failed after 3 attempts due to network issues.", ex);
+                        Console.WriteLine($"Request to {endpoint} timed out after {RequestTimeoutSeconds}s");
+                        lastException = new TimeoutException($"Request to {endpoint} timed out");
                     }
-
-                    Thread.Sleep(delayMilliseconds);
+                    catch (HttpRequestException ex)
+                    {
+                        Console.WriteLine($"Request to {endpoint} failed: {ex.Message}");
+                        lastException = ex;
+                    }
+                    catch (AggregateException ex) when (ex.InnerException is OperationCanceledException)
+                    {
+                        Console.WriteLine($"Request to {endpoint} timed out after {RequestTimeoutSeconds}s");
+                        lastException = new TimeoutException($"Request to {endpoint} timed out");
+                    }
+                    catch (AggregateException ex) when (ex.InnerException is HttpRequestException)
+                    {
+                        Console.WriteLine($"Request to {endpoint} failed: {ex.InnerException.Message}");
+                        lastException = ex.InnerException;
+                    }
                 }
             }
 
-            throw new InvalidOperationException("Unexpected error in SendQuery.");
+            throw new TimeoutException(
+                $"SendQuery failed after {MaxPasses} passes across {OverpassEndpoints.Length} endpoints.",
+                lastException);
+        }
+
+        private static bool ResponseHasRemark(string jsonResponse)
+        {
+            try
+            {
+                var obj = JObject.Parse(jsonResponse);
+                return obj.ContainsKey("remark");
+            }
+            catch
+            {
+                return false; // If it's not valid JSON, let the caller handle it
+            }
         }
 
         public int SendCountQuery(string overpassQuery)
