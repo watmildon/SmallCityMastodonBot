@@ -23,6 +23,7 @@ namespace overpass_parser
         private const int MaxPasses = 2;
         private const int RequestTimeoutSeconds = 60;
         private const int RateLimitDelayMs = 2000;
+        private const int MaxDataLagHours = 48;
 
         public OverpassQueryBuilder(HttpClient httpClient)
         {
@@ -82,10 +83,11 @@ namespace overpass_parser
                         contentTask.Wait();
                         string result = contentTask.Result;
 
-                        // Check for Overpass server-side errors returned as HTTP 200
-                        if (ResponseHasRemark(result))
+                        // Validate response: must be JSON, no remark, and fresh data
+                        string? rejectReason = GetResponseRejectReason(result);
+                        if (rejectReason != null)
                         {
-                            Console.WriteLine($"Overpass remark (server-side error) from {endpoint}, trying next endpoint");
+                            Console.WriteLine($"Rejecting response from {endpoint}: {rejectReason}, trying next endpoint");
                             continue;
                         }
 
@@ -119,17 +121,31 @@ namespace overpass_parser
                 lastException);
         }
 
-        private static bool ResponseHasRemark(string jsonResponse)
+        private static string? GetResponseRejectReason(string response)
         {
+            JObject obj;
             try
             {
-                var obj = JObject.Parse(jsonResponse);
-                return obj.ContainsKey("remark");
+                obj = JObject.Parse(response);
             }
             catch
             {
-                return false; // If it's not valid JSON, let the caller handle it
+                return "non-JSON response (e.g. HTML error page)";
             }
+
+            if (obj.ContainsKey("remark"))
+                return "server-side error (remark field present)";
+
+            // Check data freshness via osm3s.timestamp_osm_base
+            var timestamp = obj.SelectToken("osm3s.timestamp_osm_base")?.ToString();
+            if (timestamp != null && DateTime.TryParse(timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dataTime))
+            {
+                var lag = DateTime.UtcNow - dataTime;
+                if (lag.TotalHours > MaxDataLagHours)
+                    return $"stale data ({lag.TotalHours:F0}h old, max {MaxDataLagHours}h)";
+            }
+
+            return null;
         }
 
         public int SendCountQuery(string overpassQuery)
