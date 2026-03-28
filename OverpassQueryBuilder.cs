@@ -16,13 +16,12 @@ namespace overpass_parser
         [
             "https://overpass-api.de/api/interpreter",
             "https://overpass.kumi.systems/api/interpreter",
-            "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
             "https://overpass.private.coffee/api/interpreter",
         ];
 
         private const int MaxPasses = 2;
         private const int RequestTimeoutSeconds = 60;
-        private const int RateLimitDelayMs = 2000;
+        private const int RateLimitDelayMs = 10000;
         private const int MaxDataLagHours = 48;
 
         public OverpassQueryBuilder(HttpClient httpClient)
