@@ -23,4 +23,6 @@ jobs:
         run: dotnet build SmallCityMastodonBot.csproj --configuration Release
 
       - name: Run project with dummy api key so it doesn't post
+        env:
+          OVERPASS_PRIMARY_URL: ${{ secrets.OVERPASS_PRIMARY_URL }}
         run: dotnet run --project SmallCityMastodonBot.csproj -- "12345" "UnmappedSmallTownCanada" "/posttown"

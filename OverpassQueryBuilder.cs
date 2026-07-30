@@ -12,12 +12,41 @@ namespace overpass_parser
     {
         private readonly HttpClient httpClient;
 
-        private static readonly string[] OverpassEndpoints =
+        /// <summary>
+        /// Environment variable holding a private Overpass instance URL. When set, it is tried
+        /// before the public endpoints below, which remain as fallback.
+        /// </summary>
+        public const string PrimaryEndpointEnvVar = "OVERPASS_PRIMARY_URL";
+
+        private static readonly string[] PublicOverpassEndpoints =
         [
             "https://overpass-api.de/api/interpreter",
             "https://overpass.kumi.systems/api/interpreter",
             "https://overpass.private.coffee/api/interpreter",
         ];
+
+        private static readonly string[] OverpassEndpoints = BuildEndpointList();
+
+        private static string[] BuildEndpointList()
+        {
+            var primary = Environment.GetEnvironmentVariable(PrimaryEndpointEnvVar)?.Trim();
+
+            if (string.IsNullOrEmpty(primary))
+            {
+                Console.WriteLine($"{PrimaryEndpointEnvVar} not set, using public Overpass endpoints only");
+                return PublicOverpassEndpoints;
+            }
+
+            if (!Uri.TryCreate(primary, UriKind.Absolute, out var uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            {
+                Console.WriteLine($"WARNING: {PrimaryEndpointEnvVar} is not a valid http(s) URL, ignoring it and using public Overpass endpoints only");
+                return PublicOverpassEndpoints;
+            }
+
+            Console.WriteLine($"Using primary Overpass endpoint from {PrimaryEndpointEnvVar} ({uri.Host}), with public endpoints as fallback");
+            return [primary, .. PublicOverpassEndpoints];
+        }
 
         private const int MaxPasses = 2;
         private const int RequestTimeoutSeconds = 60;
