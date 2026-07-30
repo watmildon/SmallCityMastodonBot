@@ -25,7 +25,19 @@ namespace overpass_parser
             "https://overpass.private.coffee/api/interpreter",
         ];
 
+        /// <summary>
+        /// Placeholder logged in place of the private endpoint URL. The private instance URL is a
+        /// secret: it must never appear in console output, which lands in public CI logs.
+        /// </summary>
+        private const string PrivateEndpointLabel = "<private Overpass instance>";
+
         private static readonly string[] OverpassEndpoints = BuildEndpointList();
+
+        /// <summary>
+        /// The private endpoint URL, or null when none is configured. Used only to decide whether a
+        /// given endpoint must be redacted before logging — never logged itself.
+        /// </summary>
+        private static string? privateEndpoint;
 
         private static string[] BuildEndpointList()
         {
@@ -40,12 +52,38 @@ namespace overpass_parser
             if (!Uri.TryCreate(primary, UriKind.Absolute, out var uri) ||
                 (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
             {
+                // Deliberately does not echo the offending value — it may be a malformed secret.
                 Console.WriteLine($"WARNING: {PrimaryEndpointEnvVar} is not a valid http(s) URL, ignoring it and using public Overpass endpoints only");
                 return PublicOverpassEndpoints;
             }
 
-            Console.WriteLine($"Using primary Overpass endpoint from {PrimaryEndpointEnvVar} ({uri.Host}), with public endpoints as fallback");
+            privateEndpoint = primary;
+            Console.WriteLine($"Using primary Overpass endpoint from {PrimaryEndpointEnvVar}, with public endpoints as fallback");
             return [primary, .. PublicOverpassEndpoints];
+        }
+
+        /// <summary>
+        /// Returns a log-safe name for an endpoint, replacing the private instance URL with a
+        /// placeholder. Always use this instead of interpolating an endpoint into log output.
+        /// </summary>
+        private static string SafeName(string endpoint) =>
+            endpoint == privateEndpoint ? PrivateEndpointLabel : endpoint;
+
+        /// <summary>
+        /// Strips any occurrence of the private endpoint URL (and its host) from arbitrary text such
+        /// as exception messages, which often embed the host they failed to reach.
+        /// </summary>
+        private static string Redact(string text)
+        {
+            if (string.IsNullOrEmpty(privateEndpoint) || string.IsNullOrEmpty(text))
+                return text;
+
+            text = text.Replace(privateEndpoint, PrivateEndpointLabel, StringComparison.OrdinalIgnoreCase);
+
+            if (Uri.TryCreate(privateEndpoint, UriKind.Absolute, out var uri))
+                text = text.Replace(uri.Host, PrivateEndpointLabel, StringComparison.OrdinalIgnoreCase);
+
+            return text;
         }
 
         private const int MaxPasses = 2;
@@ -84,7 +122,7 @@ namespace overpass_parser
                             Thread.Sleep(sleepTime);
                         }
 
-                        Console.WriteLine($"Querying {endpoint} (pass {pass + 1}/{MaxPasses})");
+                        Console.WriteLine($"Querying {SafeName(endpoint)} (pass {pass + 1}/{MaxPasses})");
 
                         HttpRequestMessage request = new(HttpMethod.Post, endpoint);
                         request.Headers.Add("User-Agent", Program.userAgent);
@@ -100,7 +138,7 @@ namespace overpass_parser
                         // Handle rate limiting: wait briefly then try next endpoint
                         if (response.StatusCode == HttpStatusCode.TooManyRequests)
                         {
-                            Console.WriteLine($"Rate limited (429) by {endpoint}, trying next endpoint");
+                            Console.WriteLine($"Rate limited (429) by {SafeName(endpoint)}, trying next endpoint");
                             Thread.Sleep(RateLimitDelayMs);
                             continue;
                         }
@@ -115,7 +153,7 @@ namespace overpass_parser
                         string? rejectReason = GetResponseRejectReason(result);
                         if (rejectReason != null)
                         {
-                            Console.WriteLine($"Rejecting response from {endpoint}: {rejectReason}, trying next endpoint");
+                            Console.WriteLine($"Rejecting response from {SafeName(endpoint)}: {rejectReason}, trying next endpoint");
                             continue;
                         }
 
@@ -123,23 +161,24 @@ namespace overpass_parser
                     }
                     catch (OperationCanceledException)
                     {
-                        Console.WriteLine($"Request to {endpoint} timed out after {RequestTimeoutSeconds}s");
-                        lastException = new TimeoutException($"Request to {endpoint} timed out");
+                        Console.WriteLine($"Request to {SafeName(endpoint)} timed out after {RequestTimeoutSeconds}s");
+                        lastException = new TimeoutException($"Request to {SafeName(endpoint)} timed out");
                     }
                     catch (HttpRequestException ex)
                     {
-                        Console.WriteLine($"Request to {endpoint} failed: {ex.Message}");
-                        lastException = ex;
+                        // Exception messages embed the unreachable host, so redact before logging.
+                        Console.WriteLine($"Request to {SafeName(endpoint)} failed: {Redact(ex.Message)}");
+                        lastException = new HttpRequestException(Redact(ex.Message));
                     }
                     catch (AggregateException ex) when (ex.InnerException is OperationCanceledException)
                     {
-                        Console.WriteLine($"Request to {endpoint} timed out after {RequestTimeoutSeconds}s");
-                        lastException = new TimeoutException($"Request to {endpoint} timed out");
+                        Console.WriteLine($"Request to {SafeName(endpoint)} timed out after {RequestTimeoutSeconds}s");
+                        lastException = new TimeoutException($"Request to {SafeName(endpoint)} timed out");
                     }
                     catch (AggregateException ex) when (ex.InnerException is HttpRequestException)
                     {
-                        Console.WriteLine($"Request to {endpoint} failed: {ex.InnerException.Message}");
-                        lastException = ex.InnerException;
+                        Console.WriteLine($"Request to {SafeName(endpoint)} failed: {Redact(ex.InnerException.Message)}");
+                        lastException = new HttpRequestException(Redact(ex.InnerException.Message));
                     }
                 }
             }
