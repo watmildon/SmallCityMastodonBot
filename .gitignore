@@ -363,3 +363,73 @@ MigrationBackup/
 FodyWeavers.xsd
 /SmallCityMastodonBot/Properties/launchSettings.json
 /SmallCityMastodonBot/Properties/launchSettings.json
+
+##
+## AI / LLM coding assistants
+
+# Claude Code (claude.ai/code)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.claude-trace/
+
+# OpenAI Codex / generic agent instruction files
+AGENTS.md
+AGENT.md
+.codex/
+
+# Cursor
+.cursor/
+.cursorrules
+.cursorignore
+.cursorindexingignore
+
+# GitHub Copilot
+.copilot/
+copilot-instructions.md
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
+
+# Windsurf / Codeium
+.windsurf/
+.windsurfrules
+.codeium/
+
+# Cline / Roo Code
+.clinerules
+.clinerules/
+.roo/
+.roomodes
+
+# Aider
+.aider*
+!.aider.conf.yml.example
+
+# Continue.dev
+.continue/
+
+# Sourcegraph Cody
+.cody/
+.sourcegraph/
+
+# Gemini CLI / Jules
+.gemini/
+GEMINI.md
+
+# Zed AI
+.zed/
+
+# JetBrains AI Assistant
+.idea/aiAssistant/
+
+# Model Context Protocol (may contain server credentials)
+.mcp.json
+mcp.json
+
+# Common agent scratch/output dirs
+.ai/
+.agent/
+.agents/
+ai-notes/
+.prompts/
