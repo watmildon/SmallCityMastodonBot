@@ -25,6 +25,20 @@
         "greetingText": "seems like it could use some mapping!",
         "populationText": "Population",
         "mapLinkText": "Map link"
+      },
+      "monthlyPostText": {
+        "culture": "en-US",
+        "language": "en",
+        "headerText": "{0} Retrospective 🏡",
+        "introText": "In {0} we featured {1} small towns... and you mapped {2} of them!",
+        "buildingsLine": "🏠 {0} buildings added",
+        "roadsLine": "🛣️ {0} TIGER roads reviewed",
+        "changesetsLine": "✏️ {0} changesets by {1} mappers",
+        "mostImprovedText": "Most improved:",
+        "starLine": "⭐ {0}, {1} (+{2} buildings)",
+        "thanksText": "Thanks for putting small towns on the map!",
+        "hashtags": "#OpenStreetMap #SmallTownUSA",
+        "imageAltText": "OpenStreetMap map of {0}, {1}, where volunteers added {2} buildings in {3}. The map shows the town's streets with newly traced building footprints."
       }
     },
     {
@@ -45,6 +59,19 @@
         "greetingText": "seems like it could use some mapping!",
         "populationText": "Population",
         "mapLinkText": "Map link"
+      },
+      "monthlyPostText": {
+        "culture": "en-CA",
+        "language": "en",
+        "headerText": "{0} Retrospective 🏡",
+        "introText": "In {0} we featured {1} small towns... and you mapped {2} of them!",
+        "buildingsLine": "🏠 {0} buildings added",
+        "changesetsLine": "✏️ {0} changesets by {1} mappers",
+        "mostImprovedText": "Most improved:",
+        "starLine": "⭐ {0}, {1} (+{2} buildings)",
+        "thanksText": "Thanks for putting small towns on the map!",
+        "hashtags": "#OpenStreetMap #SmallTownCanada",
+        "imageAltText": "OpenStreetMap map of {0}, {1}, where volunteers added {2} buildings in {3}. The map shows the town's streets with newly traced building footprints."
       }
     },
     {
@@ -65,6 +92,19 @@
         "greetingText": "parece que precisa de mapeamento!",
         "populationText": "População",
         "mapLinkText": "Link do mapa"
+      },
+      "monthlyPostText": {
+        "culture": "pt-BR",
+        "language": "pt",
+        "headerText": "Retrospectiva de {0} 🏡",
+        "introText": "Em {0}, destacamos {1} cidades pequenas...e vocês mapearam {2} delas!",
+        "buildingsLine": "🏠 {0} edificações adicionadas",
+        "changesetsLine": "✏️ {0} conjuntos de alterações por {1} mapeadores",
+        "mostImprovedText": "Mais melhoradas:",
+        "starLine": "⭐ {0}, {1} (+{2} edificações)",
+        "thanksText": "Obrigado por colocar as cidades pequenas no mapa!",
+        "hashtags": "#OpenStreetMap #SmallTownBrazil",
+        "imageAltText": "Mapa do OpenStreetMap de {0}, {1}, onde voluntários adicionaram {2} edificações em {3}. O mapa mostra as ruas da cidade com edificações recém-traçadas."
       }
     }
   ]

@@ -18,13 +18,14 @@ namespace SmallCityMastodonBot
         public static readonly int BUILDING_COUNT_MAXIMUM = 10;
         public static bool postTown = false;
         public static bool postReplies = false;
+        public static bool postMonthly = false;
         public static string targetBotName = "";
         public static string apiKey = "";
         static void Main(string[] args)
         {
             if (args.Length == 0)
             {
-                Console.WriteLine("USAGE: SmallCityMastodonBot apiKey [/postTown] [/postReplies]");
+                Console.WriteLine("USAGE: SmallCityMastodonBot apiKey [/postTown] [/postReplies] [/postMonthly]");
                 return;
             }
 
@@ -57,6 +58,13 @@ namespace SmallCityMastodonBot
             httpClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
             httpClient.DefaultRequestHeaders.Referrer = new Uri("https://www.openstreetmap.org/");
 
+            // Tile downloads use a separate client: the OSMF tile usage policy forbids sending
+            // no-cache headers, which httpClient sets by default for API freshness.
+            HttpClient tileClient = new HttpClient();
+            tileClient.DefaultRequestHeaders.UserAgent.Add(productValue);
+            tileClient.DefaultRequestHeaders.UserAgent.Add(commentValue);
+            tileClient.DefaultRequestHeaders.Referrer = new Uri("https://www.openstreetmap.org/");
+
             bool botFound = false;
             foreach (var bot in botConfigInfo.botInfo)
             {
@@ -69,12 +77,17 @@ namespace SmallCityMastodonBot
                         if (postTown)
                         {
                             Console.WriteLine("Posting Town");
-                            GeneratePost(apiKey, bot, httpClient);
+                            GeneratePost(apiKey, bot, httpClient, tileClient);
                         }
                         if (postReplies)
                         {
-                            var task = ReplyToMappedItPosts(httpClient, apiKey);
+                            var task = ReplyToMappedItPosts(httpClient, tileClient, apiKey);
                             task.Wait();
+                        }
+                        if (postMonthly)
+                        {
+                            Console.WriteLine("Posting monthly retrospective");
+                            MonthlyRetrospective.Run(httpClient, tileClient, apiKey, bot).Wait();
                         }
                     }
                     catch (Exception ex)
@@ -109,17 +122,22 @@ namespace SmallCityMastodonBot
                         Console.WriteLine("Set to post replies");
                         postReplies = true;
                     }
+                    else if (arg.ToLowerInvariant().Contains("postmonthly"))
+                    {
+                        Console.WriteLine("Set to post monthly retrospective");
+                        postMonthly = true;
+                    }
                 }
             }
             catch(Exception ex)
             {
                 Console.WriteLine(ex.ToString());
                 Console.WriteLine();
-                Console.WriteLine("USAGE: SmallCityMastodonBot apiKey botName [/postTown] [/postReplies]");
+                Console.WriteLine("USAGE: SmallCityMastodonBot apiKey botName [/postTown] [/postReplies] [/postMonthly]");
             }
         }
 
-        private static void GeneratePost(string apiToken, Botinfo bot, HttpClient httpClient)
+        private static void GeneratePost(string apiToken, Botinfo bot, HttpClient httpClient, HttpClient tileClient)
         {
             string allText = System.IO.File.ReadAllText(bot.townFile);
 
@@ -206,7 +224,7 @@ namespace SmallCityMastodonBot
                 Console.WriteLine("Begin image generation");
                 // generate image from tiles
                 string imagePath = $"{pickedTown.tags.name}_TownImage.png";
-                var taskReturn = GenerateImageFromOSMTiles(httpClient, 16, pickedTown.lat, pickedTown.lon, imagePath);
+                var taskReturn = GenerateImageFromOSMTiles(tileClient, 16, pickedTown.lat, pickedTown.lon, imagePath);
                 taskReturn.Wait();
                 var imageBytes = File.ReadAllBytes(imagePath); //todo, get this from a memory stream from the call above
 
@@ -266,16 +284,40 @@ namespace SmallCityMastodonBot
             return content;
         }
 
-        private static async Task GenerateImageFromOSMTiles(HttpClient httpClient, int zoom, double lat, double lon, string outputFilePath)
+        private const int NUM_TILES_WIDE = 3; // Adjust as needed
+
+        /// <summary>
+        /// URLs of the tile grid centered on the coordinate, in the placement order used by
+        /// <see cref="GenerateImageFromOSMTiles"/> (columns left to right, rows top to bottom).
+        /// </summary>
+        internal static List<string> GetTileUrls(int zoom, double lat, double lon)
         {
-            const int TILE_SIZE = 256;
-            const int NUM_TILES_WIDE = 3; // Adjust as needed
             const int TILE_COUNT_OFFSET = NUM_TILES_WIDE / 2;
 
             // Convert lat/lon to tile coordinates
             float x = (float)((lon + 180.0) / 360.0 * (1 << zoom));
             float y = (float)((1.0 - Math.Log(Math.Tan(lat * Math.PI / 180.0) +
                         1.0 / Math.Cos(lat * Math.PI / 180.0)) / Math.PI) / 2.0 * (1 << zoom));
+
+            var urls = new List<string>();
+            for (int i = 0; i < NUM_TILES_WIDE; i++)
+            {
+                for (int j = 0; j < NUM_TILES_WIDE; j++)
+                {
+                    int tileX = (int)Math.Floor(x + i - TILE_COUNT_OFFSET);
+                    int tileY = (int)Math.Floor(y + j - TILE_COUNT_OFFSET);
+                    urls.Add($"https://tile.openstreetmap.org/{zoom}/{tileX}/{tileY}.png");
+                }
+            }
+
+            return urls;
+        }
+
+        internal static async Task GenerateImageFromOSMTiles(HttpClient httpClient, int zoom, double lat, double lon, string outputFilePath)
+        {
+            const int TILE_SIZE = 256;
+
+            var tileUrls = GetTileUrls(zoom, lat, lon);
 
             // Create the final stitched image
             using var resultImage = new Image<Rgba32>(NUM_TILES_WIDE * TILE_SIZE, NUM_TILES_WIDE * TILE_SIZE);
@@ -284,9 +326,7 @@ namespace SmallCityMastodonBot
             {
                 for (int j = 0; j < NUM_TILES_WIDE; j++)
                 {
-                    int tileX = (int)Math.Floor(x + i - TILE_COUNT_OFFSET);
-                    int tileY = (int)Math.Floor(y + j - TILE_COUNT_OFFSET);
-                    string url = $"https://tile.openstreetmap.org/{zoom}/{tileX}/{tileY}.png";
+                    string url = tileUrls[i * NUM_TILES_WIDE + j];
 
                     Debug.WriteLine(url);
 
@@ -313,7 +353,7 @@ namespace SmallCityMastodonBot
         }
 
 
-        private static async Task ReplyToMappedItPosts(HttpClient client, string token)
+        private static async Task ReplyToMappedItPosts(HttpClient client, HttpClient tileClient, string token)
         {
             var domain = "en.osm.town";
             var mastodonClient = new MastodonClient(domain, token, client);
@@ -454,7 +494,7 @@ namespace SmallCityMastodonBot
                 }
 
                 Console.WriteLine($"\tPosting mapping reply for {pc.CityName}");
-                await PostMappingReply(client, token, replyStatus, pc);
+                await PostMappingReply(client, tileClient, token, replyStatus, pc);
             }
 
             // Save the highest notification ID to the marker
@@ -472,7 +512,7 @@ namespace SmallCityMastodonBot
             }
         }
 
-        private static async Task PostMappingReply(HttpClient httpClient, String token, Status mappedItPost, PostContent originalContent)
+        private static async Task PostMappingReply(HttpClient httpClient, HttpClient tileClient, String token, Status mappedItPost, PostContent originalContent)
         {
             var domain = "en.osm.town";
             var mastodonClient = new MastodonClient(domain, token, httpClient);
@@ -491,7 +531,7 @@ namespace SmallCityMastodonBot
             // if two folks ask for the same town, we don't need to generate the image twice
             if (!File.Exists(imagePath))
             {
-                await GenerateImageFromOSMTiles(httpClient, 16, originalContent.Lattitude, originalContent.Longitude, imagePath);
+                await GenerateImageFromOSMTiles(tileClient, 16, originalContent.Lattitude, originalContent.Longitude, imagePath);
                 Console.WriteLine("Generated image");
             }
 

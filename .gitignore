@@ -433,3 +433,5 @@ mcp.json
 .agents/
 ai-notes/
 .prompts/
+
+.overpassurl

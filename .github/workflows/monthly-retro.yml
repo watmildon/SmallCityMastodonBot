@@ -1,0 +1,43 @@
+name: Monthly Retrospective SmallCityMastodonBot
+
+on:
+  schedule:
+    - cron: '0 19 10 * *'  # 10th of each month, 12 PM PT (19:00 UTC during DST)
+  workflow_dispatch:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore SmallCityMastodonBot.csproj
+
+      - name: Build project
+        run: dotnet build SmallCityMastodonBot.csproj --configuration Release
+
+      - name: Run monthly retrospective for USA
+        env:
+          API_TOKEN: ${{ secrets.MASTODON_API_KEY }}
+          OVERPASS_PRIMARY_URL: ${{ secrets.OVERPASS_PRIMARY_URL }}
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "UnmappedSmallTownUSA" "/postmonthly"
+
+      - name: Run monthly retrospective for Canada
+        env:
+          API_TOKEN: ${{ secrets.MASTODON_API_KEY_CA }}
+          OVERPASS_PRIMARY_URL: ${{ secrets.OVERPASS_PRIMARY_URL }}
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "UnmappedSmallTownCanada" "/postmonthly"
+
+      - name: Run monthly retrospective for Brazil
+        env:
+          API_TOKEN: ${{ secrets.MASTODON_API_KEY_BR }}
+          OVERPASS_PRIMARY_URL: ${{ secrets.OVERPASS_PRIMARY_URL }}
+        run: dotnet run --project SmallCityMastodonBot.csproj -- "$API_TOKEN" "UnmappedSmallTownBrazil" "/postmonthly"

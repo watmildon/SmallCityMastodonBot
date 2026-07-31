@@ -12,6 +12,28 @@ public class Botinfo
     public string townFile { get; set; } = "";
     public Overpassquery[] overpassQuery { get; set; } = null!;
     public Posttext postText { get; set; } = null!;
+    public Monthlyposttext? monthlyPostText { get; set; }
+}
+
+/// <summary>
+/// Localized templates for the monthly retrospective post. Placeholders are string.Format
+/// indexes; see MonthlyRetrospective for what each one receives. A bot without this section
+/// skips the monthly post.
+/// </summary>
+public class Monthlyposttext
+{
+    public string culture { get; set; } = "en-US";
+    public string language { get; set; } = "en";
+    public string headerText { get; set; } = "";       // {0}=month name
+    public string introText { get; set; } = "";        // {0}=month name, {1}=towns featured, {2}=towns mapped
+    public string buildingsLine { get; set; } = "";    // {0}=buildings added
+    public string? roadsLine { get; set; }             // {0}=roads reviewed (omit for bots without a tiger:reviewed query)
+    public string changesetsLine { get; set; } = "";   // {0}=changesets, {1}=mappers
+    public string mostImprovedText { get; set; } = "";
+    public string starLine { get; set; } = "";         // {0}=town, {1}=state, {2}=buildings added
+    public string thanksText { get; set; } = "";
+    public string hashtags { get; set; } = "";
+    public string imageAltText { get; set; } = "";     // {0}=town, {1}=state, {2}=buildings added, {3}=month name
 }
 
 public class Posttext

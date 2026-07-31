@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using SmallCityMastodonBot;
 using System.Net;
 using System.Text;
+using System.Xml;
 using System.Xml.Serialization;
 
 namespace overpass_parser
@@ -101,10 +102,29 @@ namespace overpass_parser
             return $"[out:json][timeout:25];(nwr(around:{radiusInMeters}.00,{latitude},{longitude})[\"{tagKey}\"];);out count;";
         }
 
+        /// <summary>
+        /// Builds a diff query returning every element changed between <paramref name="sinceUtc"/>
+        /// and now within the radius. Requires an endpoint with attic (history) data, and the
+        /// output is XML: Overpass refuses to serve diff results as JSON.
+        /// </summary>
+        public string CreateDiffQuery(double latitude, double longitude, string radiusInMeters, DateTime sinceUtc)
+        {
+            string since = sinceUtc.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+            return $"[timeout:60][diff:\"{since}\"];nwr(around:{radiusInMeters}.00,{latitude},{longitude});out meta;";
+        }
+
         private static long lastQueryTime = DateTime.MinValue.Ticks / TimeSpan.TicksPerMillisecond;
         private static readonly long queryThrottle = 500;
 
-        public string SendQuery(string overpassQuery)
+        public string SendQuery(string overpassQuery) => SendWithRetries(overpassQuery, GetResponseRejectReason);
+
+        /// <summary>
+        /// Variant of <see cref="SendQuery"/> for queries whose output is XML, such as
+        /// [diff:...] queries, which Overpass will not serve as JSON.
+        /// </summary>
+        public string SendXmlQuery(string overpassQuery) => SendWithRetries(overpassQuery, GetXmlResponseRejectReason);
+
+        private string SendWithRetries(string overpassQuery, Func<string, string?> getRejectReason)
         {
             Exception? lastException = null;
 
@@ -149,8 +169,8 @@ namespace overpass_parser
                         contentTask.Wait();
                         string result = contentTask.Result;
 
-                        // Validate response: must be JSON, no remark, and fresh data
-                        string? rejectReason = GetResponseRejectReason(result);
+                        // Validate response: must parse, no remark, and fresh data
+                        string? rejectReason = getRejectReason(result);
                         if (rejectReason != null)
                         {
                             Console.WriteLine($"Rejecting response from {SafeName(endpoint)}: {rejectReason}, trying next endpoint");
@@ -184,8 +204,68 @@ namespace overpass_parser
             }
 
             throw new TimeoutException(
-                $"SendQuery failed after {MaxPasses} passes across {OverpassEndpoints.Length} endpoints.",
+                $"Overpass query failed after {MaxPasses} passes across {OverpassEndpoints.Length} endpoints.",
                 lastException);
+        }
+
+        /// <summary>
+        /// Runs a diff query (see <see cref="CreateDiffQuery"/>) and summarizes the changed
+        /// elements: counts by action type plus the distinct editors and changesets involved.
+        /// </summary>
+        public OverpassDiffStats GetDiffStats(string diffQuery)
+        {
+            string xmlResult = SendXmlQuery(diffQuery);
+            var doc = new XmlDocument();
+            doc.LoadXml(xmlResult);
+
+            var stats = new OverpassDiffStats();
+            var actions = doc.SelectNodes("/osm/action");
+            if (actions == null)
+                return stats;
+
+            foreach (XmlElement action in actions)
+            {
+                string actionType = action.GetAttribute("type");
+
+                // create actions hold the element directly; modify/delete wrap old/new versions
+                XmlElement? element = actionType == "create"
+                    ? FirstElementChild(action)
+                    : FirstElementChild(action["new"]) ?? FirstElementChild(action["old"]);
+                if (element == null)
+                    continue;
+
+                switch (actionType)
+                {
+                    case "create": stats.Created++; break;
+                    case "modify": stats.Modified++; break;
+                    case "delete": stats.Deleted++; break;
+                    default: continue;
+                }
+
+                string user = element.GetAttribute("user");
+                if (!string.IsNullOrEmpty(user))
+                    stats.Users.Add(user);
+
+                string changeset = element.GetAttribute("changeset");
+                if (!string.IsNullOrEmpty(changeset))
+                    stats.Changesets.Add(changeset);
+            }
+
+            return stats;
+        }
+
+        private static XmlElement? FirstElementChild(XmlElement? node)
+        {
+            if (node == null)
+                return null;
+
+            foreach (XmlNode child in node.ChildNodes)
+            {
+                if (child is XmlElement element)
+                    return element;
+            }
+
+            return null;
         }
 
         private static string? GetResponseRejectReason(string response)
@@ -206,6 +286,33 @@ namespace overpass_parser
             // Check data freshness via osm3s.timestamp_osm_base
             var timestamp = obj.SelectToken("osm3s.timestamp_osm_base")?.ToString();
             if (timestamp != null && DateTime.TryParse(timestamp, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dataTime))
+            {
+                var lag = DateTime.UtcNow - dataTime;
+                if (lag.TotalHours > MaxDataLagHours)
+                    return $"stale data ({lag.TotalHours:F0}h old, max {MaxDataLagHours}h)";
+            }
+
+            return null;
+        }
+
+        private static string? GetXmlResponseRejectReason(string response)
+        {
+            var doc = new XmlDocument();
+            try
+            {
+                doc.LoadXml(response);
+            }
+            catch
+            {
+                return "non-XML response (e.g. HTML error page)";
+            }
+
+            // Overpass reports errors (including missing attic data) via remark elements
+            if (doc.SelectSingleNode("//remark") != null)
+                return "server-side error (remark element present)";
+
+            var osmBase = (doc.SelectSingleNode("/osm/meta") as XmlElement)?.GetAttribute("osm_base");
+            if (!string.IsNullOrEmpty(osmBase) && DateTime.TryParse(osmBase, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dataTime))
             {
                 var lag = DateTime.UtcNow - dataTime;
                 if (lag.TotalHours > MaxDataLagHours)
@@ -241,5 +348,19 @@ namespace overpass_parser
                 throw;
             }
         }
+    }
+
+    /// <summary>
+    /// Summary of an Overpass diff query: how many elements were created/modified/deleted in the
+    /// window, and which editors and changesets were involved.
+    /// </summary>
+    public class OverpassDiffStats
+    {
+        public int Created { get; set; }
+        public int Modified { get; set; }
+        public int Deleted { get; set; }
+        public HashSet<string> Users { get; } = new();
+        public HashSet<string> Changesets { get; } = new();
+        public int TotalChanges => Created + Modified + Deleted;
     }
 }
