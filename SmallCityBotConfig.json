@@ -106,6 +106,47 @@
         "hashtags": "#OpenStreetMap #SmallTownBrazil",
         "imageAltText": "Mapa do OpenStreetMap de {0}, {1}, onde voluntários adicionaram {2} edificações em {3}. O mapa mostra as ruas da cidade com edificações recém-traçadas."
       }
+    },
+    {
+      "botUrl": "@SmallTownAustralia@en.osm.town",
+      "botDomain": "en.osm.town",
+      "botName": "Unmapped Small Towns - Australia",
+      "townFile": "townsList_Australia.json",
+      "overpassQuery": [
+        {
+          "featureTag": "building",
+          "queryType": "count",
+          "countMaximum": "10",
+          "radiusInMeters": "800",
+          "message": "Building count"
+        },
+        {
+          "featureTag": "tiger:reviewed",
+          "queryType": "count",
+          "countMaximum": "-1",
+          "radiusInMeters": "800",
+          "message": "Roads to review"
+        }
+      ],
+      "postText": {
+        "greetingText": "seems like it could use some mapping!",
+        "populationText": "Population",
+        "mapLinkText": "Map link"
+      },
+      "monthlyPostText": {
+        "culture": "en-AU",
+        "language": "en",
+        "headerText": "{0} Retrospective 🏡",
+        "introText": "In {0} we featured {1} small towns... and you mapped {2} of them!",
+        "buildingsLine": "🏠 {0} buildings added",
+        "roadsLine": "🛣️ {0} TIGER roads reviewed",
+        "changesetsLine": "✏️ {0} changesets by {1} mappers",
+        "mostImprovedText": "Most improved:",
+        "starLine": "⭐ {0}, {1} (+{2} buildings)",
+        "thanksText": "Thanks for putting small towns on the map!",
+        "hashtags": "#OpenStreetMap #SmallTownAustralia #UnmappedSmallTownAU",
+        "imageAltText": "OpenStreetMap map of {0}, {1}, where volunteers added {2} buildings in {3}. The map shows the town's streets with newly traced building footprints."
+      }
     }
   ]
 }
