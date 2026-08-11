@@ -119,13 +119,6 @@
           "countMaximum": "10",
           "radiusInMeters": "800",
           "message": "Building count"
-        },
-        {
-          "featureTag": "tiger:reviewed",
-          "queryType": "count",
-          "countMaximum": "-1",
-          "radiusInMeters": "800",
-          "message": "Roads to review"
         }
       ],
       "postText": {
