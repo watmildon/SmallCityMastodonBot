@@ -110,7 +110,7 @@
     {
       "botUrl": "@SmallTownAustralia@en.osm.town",
       "botDomain": "en.osm.town",
-      "botName": "Unmapped Small Towns - Australia",
+      "botName": "UnmappedSmallTownAustralia",
       "townFile": "townsList_Australia.json",
       "overpassQuery": [
         {
