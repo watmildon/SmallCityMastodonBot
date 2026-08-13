@@ -132,7 +132,6 @@
         "headerText": "{0} Retrospective 🏡",
         "introText": "In {0} we featured {1} small towns... and you mapped {2} of them!",
         "buildingsLine": "🏠 {0} buildings added",
-        "roadsLine": "🛣️ {0} TIGER roads reviewed",
         "changesetsLine": "✏️ {0} changesets by {1} mappers",
         "mostImprovedText": "Most improved:",
         "starLine": "⭐ {0}, {1} (+{2} buildings)",
