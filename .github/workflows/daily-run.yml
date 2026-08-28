@@ -2,7 +2,7 @@ name: Daily Build and Run SmallCityMastodonBot
 
 on:
   schedule:
-    - cron: '0 19 * * *'  # 12 PM PT (19:00 UTC during DST)
+    - cron: '5 19 * * *'  # ~12 PM PT (19:05 UTC during DST); off the top of the hour to dodge GitHub's most-contended cron slot
   workflow_dispatch:
 
 jobs:
