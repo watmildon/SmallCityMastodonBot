@@ -5,7 +5,8 @@ This repository contains the code, datafiles, and github actions to run various 
 
 * [@SmallTownBrazil@en.osm.town](https://en.osm.town/@SmallTownBrazil)
 * [@SmallTownCanada@en.osm.town](https://en.osm.town/@SmallTownCanada)
-* [@SmallTownUSA@en.osm.town](https://en.osm.town/@SmallTownUSA) 
+* [@SmallTownUSA@en.osm.town](https://en.osm.town/@SmallTownUSA)
+* [@SmallTownAustralia@en.osm.town](https://en.osm.town/@SmallTownAustralia)
 
 Once per day, these bots find an undermapped town in their given region and post about it on the [OSM mastodon instance](https://en.osm.town).  
 
