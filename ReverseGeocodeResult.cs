@@ -15,6 +15,9 @@ public class ReverseGeocodeResult
 public class Address
 {
     public string state { get; set; } = "";
+    // Some first-level regions come back as "territory" instead of "state"
+    // (e.g. Australia's Northern Territory and Australian Capital Territory).
+    public string territory { get; set; } = "";
     public string ISO31662lvl4 { get; set; } = "";
     public string country { get; set; } = "";
     public string country_code { get; set; } = "";

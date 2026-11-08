@@ -265,7 +265,8 @@ namespace SmallCityMastodonBot
             var geoCodeResult = JsonConvert.DeserializeObject<ReverseGeocodeResult>(content)
                 ?? throw new InvalidOperationException("Failed to deserialize Nominatim response");
 
-            return geoCodeResult.address.state;
+            var address = geoCodeResult.address;
+            return string.IsNullOrEmpty(address.state) ? address.territory : address.state;
         }
 
         private static PostContent ParseStatus(Status post)

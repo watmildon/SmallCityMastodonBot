@@ -2,8 +2,8 @@
   "version": 0.6,
   "generator": "Overpass API 0.7.62.11 87bfad18",
   "osm3s": {
-    "timestamp_osm_base": "2026-09-17T19:05:27Z",
-    "timestamp_areas_base": "2026-09-17T02:16:50Z",
+    "timestamp_osm_base": "2026-11-08T03:37:17Z",
+    "timestamp_areas_base": "2026-11-07T05:58:33Z",
     "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
   },
   "elements": [
@@ -211,6 +211,21 @@
     "source:population": "ABS Urban Centres and Localities",
     "wikidata": "Q3814382",
     "wikipedia": "en:Kellerberrin, Western Australia"
+  }
+},
+{
+  "type": "node",
+  "id": 31147914,
+  "lat": -31.6294415,
+  "lon": 117.0100818,
+  "tags": {
+    "name": "Meckering",
+    "place": "village",
+    "population": "140",
+    "population:date": "2021",
+    "source:population": "ABS Mesh Block Counts",
+    "wikidata": "Q6804798",
+    "wikipedia": "en:Meckering, Western Australia"
   }
 },
 {
@@ -461,9 +476,9 @@
   "tags": {
     "name": "Quaama",
     "place": "village",
-    "population": "291",
+    "population": "151",
     "population:date": "2021",
-    "source:population": "census"
+    "source:population": "ABS Mesh Block Counts"
   }
 },
 {
@@ -717,8 +732,8 @@
 {
   "type": "node",
   "id": 59740606,
-  "lat": -38.3813131,
-  "lon": 146.2721984,
+  "lat": -38.3808483,
+  "lon": 146.2727238,
   "tags": {
     "name": "Boolarra",
     "place": "village",
@@ -793,7 +808,7 @@
   "lon": 152.3778628,
   "tags": {
     "name": "Toogoolawah",
-    "place": "village",
+    "place": "town",
     "population": "957",
     "population:date": "2021",
     "source:population": "ABS Urban Centres and Localities"
@@ -1164,8 +1179,8 @@
 {
   "type": "node",
   "id": 97551519,
-  "lat": -37.1383817,
-  "lon": 144.3481266,
+  "lat": -37.1383699,
+  "lon": 144.3481682,
   "tags": {
     "name": "Taradale",
     "place": "village",
@@ -1182,6 +1197,10 @@
   "tags": {
     "ele": "432",
     "name": "Marysville",
+    "name:fa": "ماریزویل",
+    "name:uk": "Мерісвіль",
+    "name:ur": "میریزویل",
+    "name:wuu": "马里斯维嘞",
     "place": "village",
     "population": "453",
     "population:date": "2021",
@@ -2616,18 +2635,21 @@
 {
   "type": "node",
   "id": 114176425,
-  "lat": -33.9811974,
-  "lon": 145.7060068,
+  "lat": -33.9804840,
+  "lon": 145.7072971,
   "tags": {
     "name": "Goolgowi",
     "name:ru": "Гулгови",
-    "place": "village",
+    "place": "town",
     "place:nswgnb": "LOCALITY",
     "population": "334",
     "population:date": "2021",
     "ref:nswgnb": "21075",
     "source": "nswgnb",
-    "source:population": "ABS Urban Centres and Localities"
+    "source:population": "ABS Urban Centres and Localities",
+    "start_date": "1925",
+    "wikidata": "Q5583942",
+    "wikipedia": "en:Goolgowi"
   }
 },
 {
@@ -4175,7 +4197,7 @@
   "lon": 152.6770900,
   "tags": {
     "name": "Kandanga",
-    "place": "town",
+    "place": "village",
     "population": "234",
     "population:date": "2021",
     "source:population": "ABS Urban Centres and Localities"
@@ -4656,7 +4678,7 @@
   "lon": 152.0692403,
   "tags": {
     "name": "Hampton",
-    "place": "town",
+    "place": "hamlet",
     "population": "442",
     "population:date": "2021",
     "source:population": "ABS Mesh Block Counts",
@@ -6101,6 +6123,7 @@
   "lon": 145.6628323,
   "tags": {
     "name": "Narbethong",
+    "name:wuu": "那班同",
     "place": "village",
     "population": "99",
     "population:date": "2021",
@@ -6439,6 +6462,8 @@
   "lon": 138.7246899,
   "tags": {
     "name": "Bradbury",
+    "name:yue": "白普理",
+    "name:zh": "白普理",
     "note:population": "Bradbury is too small to warrant its own mesh block. 142 is an upper bound.",
     "place": "town",
     "population": "142",
@@ -7158,6 +7183,8 @@
   "lon": 138.7280787,
   "tags": {
     "name": "Longwood",
+    "name:yue": "塱活",
+    "name:zh": "塱活",
     "note:population": "This is the population of the residential mesh block. Figure is only approximate.",
     "place": "village",
     "population": "98",
@@ -8326,7 +8353,7 @@
   "lat": -36.6010212,
   "lon": 143.9414719,
   "tags": {
-    "name": "Bridgewater On Loddon",
+    "name": "Bridgewater on Loddon",
     "place": "village",
     "population": "341",
     "population:date": "2021",
@@ -11205,8 +11232,8 @@
 {
   "type": "node",
   "id": 1615434719,
-  "lat": -37.5690786,
-  "lon": 146.2526677,
+  "lat": -37.5694969,
+  "lon": 146.2534896,
   "tags": {
     "name": "Woods Point",
     "place": "village",
@@ -11646,10 +11673,10 @@
   "lon": 152.5364244,
   "tags": {
     "name": "Buxton",
-    "place": "town",
-    "population": "286",
+    "place": "village",
+    "population": "507",
     "population:date": "2021",
-    "source:population": "ABS Mesh Block Counts",
+    "source:population": "ABS Census All persons QuickStats",
     "wikidata": "Q5003254",
     "wikipedia": "en:Buxton, Queensland"
   }
@@ -11763,8 +11790,8 @@
 {
   "type": "node",
   "id": 1720322987,
-  "lat": -26.8436768,
-  "lon": 152.2762276,
+  "lat": -26.8435539,
+  "lon": 152.2761608,
   "tags": {
     "name": "Linville",
     "place": "village",
@@ -12885,6 +12912,9 @@
   "lon": 138.8866916,
   "tags": {
     "name": "Gumeracha",
+    "name:yue": "錦蔴茶",
+    "name:zh-Hans": "锦蔴茶",
+    "name:zh-Hant": "錦蔴茶",
     "place": "town",
     "population": "721",
     "population:date": "2021",
@@ -14493,8 +14523,8 @@
 {
   "type": "node",
   "id": 2026286169,
-  "lat": -23.3609786,
-  "lon": 120.7846349,
+  "lat": -23.3608026,
+  "lon": 120.7842049,
   "tags": {
     "name": "Jigalong",
     "place": "town",
@@ -14738,6 +14768,7 @@
   "lon": 145.4672481,
   "tags": {
     "name": "Toolangi",
+    "name:wuu": "图朗基",
     "place": "village",
     "population": "69",
     "population:date": "2021",
@@ -16306,6 +16337,8 @@
   "tags": {
     "alt_name": "Ntaria",
     "name": "Hermannsburg",
+    "name:are": "Ntaria",
+    "name:aus": "Ntaria",
     "place": "village",
     "population": "551",
     "population:date": "2021",
@@ -16520,7 +16553,7 @@
   "lon": 148.9859863,
   "tags": {
     "name": "Haliday Bay",
-    "place": "town",
+    "place": "hamlet",
     "population": "334",
     "population:date": "2021",
     "source:population": "ABS Urban Centres and Localities"
@@ -16529,8 +16562,8 @@
 {
   "type": "node",
   "id": 2454846886,
-  "lat": -20.9018203,
-  "lon": 148.9611341,
+  "lat": -20.9015073,
+  "lon": 148.9674300,
   "tags": {
     "name": "Seaforth",
     "place": "town",
@@ -18742,6 +18775,21 @@
 },
 {
   "type": "node",
+  "id": 3954437652,
+  "lat": -32.5924874,
+  "lon": 117.6278341,
+  "tags": {
+    "name": "Yealering",
+    "place": "town",
+    "population": "91",
+    "population:date": "2021",
+    "source:population": "Australian Census 2021",
+    "wikidata": "Q8050828",
+    "wikipedia": "en:Yealering, Western Australia"
+  }
+},
+{
+  "type": "node",
   "id": 3979389809,
   "lat": -34.6931850,
   "lon": 150.1569097,
@@ -19385,6 +19433,9 @@
   "lon": 138.6877490,
   "tags": {
     "name": "Ironbank",
+    "name:yue": "雅倫班",
+    "name:zh-Hans": "雅伦班",
+    "name:zh-Hant": "雅倫班",
     "place": "hamlet",
     "population": "130",
     "population:date": "2021",
@@ -20467,6 +20518,9 @@
   "lon": 145.2656274,
   "tags": {
     "name": "Kinglake West",
+    "name:fa": "کینگ لیک وست",
+    "name:wuu": "国王湖西部",
+    "name:zh": "国王湖西部",
     "place": "village",
     "population": "901",
     "population:date": "2021",
@@ -20631,7 +20685,9 @@
     "place": "hamlet",
     "population": "4",
     "population:date": "2021",
-    "source:population": "ABS Mesh Block Counts"
+    "source:population": "ABS Mesh Block Counts",
+    "wikidata": "Q6412838",
+    "wikipedia": "en:Kingoonya"
   }
 },
 {
