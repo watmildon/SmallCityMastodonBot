@@ -23,7 +23,7 @@ Here's the steps to get it set up:
 * Create a mostodon account, all of the current bots are on https://en.osm.town
 * Optional: add your version of the bot with flag avatar, the template is in the repo under images
 * Contact me and let me know what the account API key is so I can add it to the repository secrets
-* Generate a regional datafile of towns using Overpass. It should look like townsList.json
+* Generate a regional datafile of towns using Overpass. It should look like townsList.json. See [query](https://github.com/watmildon/SmallCityMastodonBot/wiki#development-notes).
 * Add this file to the repo as townsList_REGION.json
 * Add a section to SmallCityBotConfig.json. Your bot must have a unique name.
 * Test run the bot (see below)
